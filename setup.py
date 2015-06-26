@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
 
-from distutils.core import setup
+from setuptools import setup
 
 if __name__ == "__main__":
   setup(
@@ -29,7 +29,8 @@ if __name__ == "__main__":
       packages=['pyOptimalEstimation',],
       license='GNU General Public License 3',
       author="Maximilian Maahn",
-      long_description=open('README.txt').read(),
+      author_email="mmaahn@meteo.uni-koeln.de",
+      long_description=open('README.md').read(),
       classifiers=[
           "Development Status :: 4 - Beta",
           "Topic :: Utilities",
@@ -39,5 +40,5 @@ if __name__ == "__main__":
           'Intended Audience :: Science/Research',
           'Topic :: Scientific/Engineering',
           ],
-      install_reqs = ['numpy', 'matplotlib', 'pandas'],
+      install_requires = ['numpy', 'matplotlib', 'pandas'],
   )
