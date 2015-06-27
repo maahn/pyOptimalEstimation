@@ -9,7 +9,15 @@ Change to the folder containing the project and do
 ```
   python setup.py install
 ```
-in the terminal.
+in the terminal. If you do not have user priviliges, you can also do:
+```
+  python setup.py --user install
+```
+which will install IMProToo in userbase/lib/pythonX.Y/site-packages or
+```
+  python setup.py install --home=~
+```
+which will install IMProToo in ~/lib/python.
 
 ## Manual
 
