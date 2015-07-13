@@ -425,11 +425,28 @@ def optimalEstimation_loadResults(fname):
     pyOptimalEstimation obtained from file.
   '''
   oeDict = np.load(fname)
-  oeDict = oeDict.tolist()
+  oe = _oeDict2Object(oeDict.tolist())
+  return oe  
+  
+def _oeDict2Object(oeDict):
+  r'''
+  Helper function to convert a oe-dictionary (usually load from a file) to a pyOptimalEstimation object
+
+  Parameters
+  ----------
+  oeDict : dict
+    dictionary object
+
+  Returns
+  -------
+  pyOptimalEstimation object
+    pyOptimalEstimation obtained from file.
+  '''
   oe = optimalEstimation(oeDict.pop("x_vars"), oeDict.pop("x_ap"), oeDict.pop("x_cov"), oeDict.pop("y_vars"), oeDict.pop("y_cov"), oeDict.pop("y_obs"), None)
   for kk in oeDict.keys():
     oe.__dict__[kk] = oeDict[kk]
-  return oe
+  return oe  
+  
   
 def _niceColors(length,cmap='hsv'):
   r'''
