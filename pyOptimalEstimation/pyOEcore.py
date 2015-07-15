@@ -272,7 +272,7 @@ class optimalEstimation(object):
             
       #calculate the convergence criteria
       if i!=0:
-        if np.abs(self.d_i2[i]) < self.y_n/float(self.convergenceFactor) and self.gam_i[i] == 1:
+        if np.abs(self.d_i2[i]) < self.y_n/float(self.convergenceFactor) and self.gam_i[i] == 1 and self.d_i2[i] != 0:
           print time.time()-startTime, "s, iteration", i, "degrees of freedom:", self.dgf_i[i], "of", self.x_n,  "convergence criteria fullfilled", self.d_i2[i]
           self.converged = True
         elif (i>1) and (self.dgf_i[i] == 0):
