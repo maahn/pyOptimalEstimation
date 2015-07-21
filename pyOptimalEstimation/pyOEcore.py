@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager 
 import pandas as pn
+import warnings
   
 class optimalEstimation(object):
   r'''
@@ -197,9 +198,8 @@ class optimalEstimation(object):
     
     S_a = np.array(self.x_cov) #Covariance of prior estimate of x
     S_Ep = np.array(self.y_cov) #S_Epsilon Covariance of measurement noise
-    S_Ep_inv = np.linalg.inv(S_Ep) #S_Ep inverted
-    S_a_inv = np.linalg.inv(S_a) #S_a inverted
-
+    S_Ep_inv = _invertMatrix(S_Ep) #S_Ep inverted
+    S_a_inv = _invertMatrix(S_a) #S_a inverted
     self.K_i = [0]*maxIter #list of jacobians
     self.x_i = [0]*(maxIter+1)
     self.y_i = [0]*maxIter
@@ -230,13 +230,13 @@ class optimalEstimation(object):
       
       #reformulated using Turner and Löhnert 2013:
       B = (self.gam_i[i] * S_a_inv) + K.T.dot(S_Ep_inv.dot(K)) #eq 3
-      B_inv = np.linalg.inv(B) 
+      B_inv = _invertMatrix(B) 
       self.S_aposterior_i[i] = B_inv.dot((self.gam_i[i]**2 * S_a_inv) + K.T.dot(S_Ep_inv.dot(K))).dot(B_inv) # eq2
       self.S_aposterior_i[i] = pn.DataFrame(self.S_aposterior_i[i],index=self.x_ap.index,columns=self.x_ap.index)
       G = B_inv.dot(K.T.dot(S_Ep_inv))
       self.A_i[i] = G.dot(K) #eq 4
       #import pdb;pdb.set_trace()
-      self.x_i[i+1] = self.x_ap + np.linalg.inv((self.gam_i[i] * S_a_inv) + K.T.dot(S_Ep_inv.dot(K))).dot(K.T.dot(S_Ep_inv.dot(self.y_obs - self.y_i[i] + K.dot(self.x_i[i]-self.x_ap)))) #eq 1
+      self.x_i[i+1] = self.x_ap + _invertMatrix((self.gam_i[i] * S_a_inv) + K.T.dot(S_Ep_inv.dot(K))).dot(K.T.dot(S_Ep_inv.dot(self.y_obs - self.y_i[i] + K.dot(self.x_i[i]-self.x_ap)))) #eq 1
       #import pdb;pdb.set_trace()
       self.dgf_i[i] = np.trace(self.A_i[i])
       
@@ -257,7 +257,7 @@ class optimalEstimation(object):
 
           
       #convergence criteria
-      self.d_i2[i] = (self.x_i[i] - self.x_i[i+1]).T.dot(np.linalg.inv(self.S_aposterior_i[i])).dot(self.x_i[i] - self.x_i[i+1]) #eq 6
+      self.d_i2[i] = (self.x_i[i] - self.x_i[i+1]).T.dot(_invertMatrix(self.S_aposterior_i[i])).dot(self.x_i[i] - self.x_i[i+1]) #eq 6
       
       #stop if we converged in the step before
       if self.converged:
@@ -469,3 +469,14 @@ def _niceColors(length,cmap='hsv'):
   for l in range(length):
     colors.append(cm(1.*l/length))
   return colors  
+
+def _invertMatrix(A):
+  '''
+  Wrapper funtion for np.linalg.inv, because original function reports LinAlgError if nan in array for some numpy versions. We want taht the retrieval is robust with respect to that
+  '''
+  if np.any(np.isnan(A)):
+    warnings.warn("Found nan in Matrix during inversion",UserWarning)
+    return np.zeros_like(A) * np.nan
+  else:
+    return np.linalg.inv(A) 
+
