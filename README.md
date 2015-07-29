@@ -9,7 +9,7 @@ Change to the folder containing the project and do
 ```
   python setup.py install
 ```
-in the terminal. If you do not have user priviliges, you can also do:
+in the terminal. If you do not have root priviliges, you can also do:
 ```
   python setup.py --user install
 ```
