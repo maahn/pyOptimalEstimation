@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager 
 import pandas as pn
 import warnings
+
   
 class optimalEstimation(object):
   r'''
@@ -166,13 +167,13 @@ class optimalEstimation(object):
         else: dist = disturbances[x_key]
         jacobian["disturbed "+x_key][y_key] = (self.y_disturbed[y_key]["disturbed "+x_key] - y[y_key]) /dist
     
-    jacobian[np.isnan(jacobian)+np.isinf(jacobian)] = 0.
+    jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
     return jacobian
 
 
 
 
-  def doRetrieval(self, maxIter=10, maxTime = 1e7):
+  def doRetrieval(self, maxIter=10, x_0=None, maxTime = 1e7):
     r"""
     run the retrieval
     
@@ -180,6 +181,8 @@ class optimalEstimation(object):
     ---------- 
     maxIter  : int, optional
       maximum number of iterations, defaults to 10
+    x_0  : pn.Series or list or np.ndarray, optional
+      first guess for x. If x_0 == None, x_ap is taken as first guess. 
     maxTime  : int, optional
       maximum runTime, defaults to 1e7 (~ 4 months).
       Note that the forward model is *not* killed if time is exceeded
@@ -213,7 +216,10 @@ class optimalEstimation(object):
       assert len(self.gammaFactor) <= maxIter    
       self.gam_i[:len(self.gammaFactor)] = self.gammaFactor
 
-    self.x_i[0] = self.x_ap
+    if x_0 is None:
+      self.x_i[0] = self.x_ap
+    else:
+      self.x_i[0] = pn.Series(x_0,index=self.x_vars)
     self.d_i2[0] = 1e333
     
     for i in range(maxIter):
@@ -261,11 +267,12 @@ class optimalEstimation(object):
       
       #stop if we converged in the step before
       if self.converged:
-        print time.time()-startTime, "s, iteration", i, "degrees of freedom:", self.dgf_i[i], "of", self.x_n,  "Done.", self.d_i2[i]
+        print "%.2f s, iteration %i, degrees of freedom: %.2f of %i. Done.  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])
         break
       
       elif ((time.time()-startTime)> maxTime):
-          print time.time()-startTime, "s, iteration", i, "DoF:", self.dgf_i[i], "of", self.x_n, "maximum Time exceeded! STOP", self.d_i2[i]
+          print "%.2f s, iteration %i, degrees of freedom: %.2f of %i. maximum Time exceeded! STOP  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])          
+          
           self.converged = False
           #failed = True
           break
@@ -273,15 +280,16 @@ class optimalEstimation(object):
       #calculate the convergence criteria
       if i!=0:
         if np.abs(self.d_i2[i]) < self.y_n/float(self.convergenceFactor) and self.gam_i[i] == 1 and self.d_i2[i] != 0:
-          print time.time()-startTime, "s, iteration", i, "degrees of freedom:", self.dgf_i[i], "of", self.x_n,  "convergence criteria fullfilled", self.d_i2[i]
+          print "%.2f s, iteration %i, degrees of freedom: %.2f of %i. convergence criteria fullfilled  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])
           self.converged = True
         elif (i>1) and (self.dgf_i[i] == 0):
-          print time.time()-startTime, "s, iteration", i, "DoF:", self.dgf_i[i], "of", self.x_n, "degrees of freedom 0! STOP", self.d_i2[i]
+          print "%.2f s, iteration %i, degrees of freedom: %.2f of %i.degrees of freedom 0! STOP  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])          
           self.converged = False
           #failed = True
           break
         else:
-          print time.time()-startTime, "s, iteration", i, "DoF:", self.dgf_i[i], "of", self.x_n,   "convergence criteria NOT fullfilled", self.d_i2[i]
+          print "%.2f s, iteration %i, degrees of freedom: %.2f of %i. convergence criteria NOT fullfilled  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])
+          
     self.K_i = self.K_i[:i+1]
     self.x_i = self.x_i[:i+2]
     self.y_i = self.y_i[:i+1]
