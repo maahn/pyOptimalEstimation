@@ -274,7 +274,7 @@ class optimalEstimation(object):
       
       #stop if we converged in the step before
       if self.converged:
-        print "%.2f s, iteration %i, degrees of freedom: %.2f of %i. Done.  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])
+        print "%.2f s, iteration %i, degrees of freedom: %.2f of %i. Done.  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])        
         break
       
       elif ((time.time()-startTime)> maxTime):
@@ -313,6 +313,40 @@ class optimalEstimation(object):
       self.convI = -9999
     return self.converged
   
+  def testLinearity(self,x_truth=None):
+    """
+    test whether the solution is moderately linear following chapter 5.1 of Rodgers 2000.
+    values lower than 1 indicate that the effect of linearization is smaller than the measurement error and problem is nearly linear. Populates self.nonlinearity. 
+    
+    Parameters
+    ---------- 
+    x_truth  : array, optional
+      estimate the true linearization error self.trueNonlinearity based on x_truth.
+    """
+    self.nonlinearity = np.zeros(self.x_n)*np.nan
+    self.trueNonlinearity = np.nan
+    if not self.converged:
+      print "did not converge"
+      return
+    lamb, II = np.linalg.eig(self.S_aposterior_i[self.convI])
+    S_Ep_inv = _invertMatrix(np.array(self.y_cov))
+    lamb[np.isclose(lamb,0)] = 0
+    if np.any(lamb < 0 ):
+      print "found negative eigenvalues of S_aposterior_i, S_aposterior_i not semipositive definite!"
+      return
+    error_pattern = lamb**0.5 * II
+    for hh in range(self.x_n):
+      x_hat = self.x_i[self.convI] + error_pattern[:,hh] #estimated truth
+      y_hat = self.forward(x_hat,**self.forwardKwArgs)
+      del_y = (y_hat - self.y_i[self.convI]  - self.K_i[self.convI].dot((x_hat - self.x_i[self.convI]).values))
+      self.nonlinearity[hh] = del_y.T.dot(S_Ep_inv).dot(del_y)
+      
+    if x_truth is not None:
+      y_truth = self.forward(x_truth,**self.forwardKwArgs)
+      del_y = (y_truth - self.y_i[self.convI]  - self.K_i[self.convI].dot((x_hat - self.x_i[self.convI]).values))
+      self.trueNonlinearity = del_y.T.dot(S_Ep_inv).dot(del_y)
+    return
+      
   def saveResults(self,fname):
     r'''
     Helper function to save a pyOptimalEstimation object. The forward operator
