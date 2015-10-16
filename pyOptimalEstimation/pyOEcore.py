@@ -9,6 +9,7 @@ import cPickle as pickle
 import time
 from copy import deepcopy 
 import numpy as np
+import scipy
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager 
 import pandas as pn
@@ -109,7 +110,7 @@ class optimalEstimation(object):
     self.A_i = None
     self.d_i2 =None
     self.S_aposterior_i = None
-    self.Pxy_i = None
+    #self.Pxy_i = None
     self.gam_i = None
     
     
@@ -211,10 +212,11 @@ class optimalEstimation(object):
     self.x_i = [0]*(maxIter+1)
     self.y_i = [0]*maxIter
     self.dgf_i=[0]*maxIter
+    self.H_i=[0]*maxIter #Shannon information content
     self.A_i = [0]*maxIter
     self.d_i2 =[0]*maxIter #convergence criteria
     self.S_aposterior_i = [0] *maxIter
-    self.Pxy_i = [0] *maxIter
+    #self.Pxy_i = [0] *maxIter
     self.gam_i = [1]*maxIter
     if self.gammaFactor:
       assert len(self.gammaFactor) <= maxIter    
@@ -249,7 +251,8 @@ class optimalEstimation(object):
       self.x_i[i+1] = self.x_ap + _invertMatrix((self.gam_i[i] * S_a_inv) + K.T.dot(S_Ep_inv.dot(K))).dot(K.T.dot(S_Ep_inv.dot(self.y_obs - self.y_i[i] + K.dot(self.x_i[i]-self.x_ap)))) #eq 1
       #import pdb;pdb.set_trace()
       self.dgf_i[i] = np.trace(self.A_i[i])
-      
+      self.H_i[i] = -0.5*np.log(np.linalg.det(np.identity(self.x_n) - self.A_i[i])) # eq. 2.80 Rodgers
+
       #check whether i+1 is valid
       for jj,xKey in enumerate(self.x_vars):
         if xKey in self.x_lowerLimit.keys() and self.x_i[i+1][jj] < self.x_lowerLimit[xKey]: 
@@ -299,9 +302,10 @@ class optimalEstimation(object):
     self.y_i = self.y_i[:i+1]
     self.dgf_i = self.dgf_i[:i+1]
     self.A_i = self.A_i[:i+1]
+    self.H_i = self.H_i[:i+1]
     self.d_i2 = self.d_i2[:i+1]
     self.S_aposterior_i = self.S_aposterior_i[:i+1]
-    self.Pxy_i = self.Pxy_i[:i+1]
+    #self.Pxy_i = self.Pxy_i[:i+1]
     self.gam_i = self.gam_i[:i+1]
     if self.converged:
       self.convI = i
@@ -484,7 +488,7 @@ def _niceColors(length,cmap='hsv'):
 
 def _invertMatrix(A):
   '''
-  Wrapper funtion for np.linalg.inv, because original function reports LinAlgError if nan in array for some numpy versions. We want taht the retrieval is robust with respect to that
+  Wrapper funtion for np.linalg.inv, because original function reports LinAlgError if nan in array for some numpy versions. We want that the retrieval is robust with respect to that
   '''
   if np.any(np.isnan(A)):
     warnings.warn("Found nan in Matrix during inversion",UserWarning)
