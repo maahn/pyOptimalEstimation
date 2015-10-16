@@ -128,6 +128,10 @@ class optimalEstimation(object):
       Jacobian around x
     '''  
     x = pn.Series(x,index=self.x_vars,dtype=float)
+
+    #If a factor is used to disturb x, x must not be zero.
+    assert not (self.useFactorInJac and np.any(x==0))
+    
     if type(self.disturbance) == float:
       disturbances = dict()
       for x_key in self.x_vars: disturbances[x_key] = self.disturbance
