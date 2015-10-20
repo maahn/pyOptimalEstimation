@@ -322,18 +322,25 @@ class optimalEstimation(object):
     ---------- 
     x_truth  : array_like, optional
       estimate the true linearization error self.trueNonlinearity based on x_truth.
+
+    Returns
+    -------
+    self.nonlinearity: float
+      ratio of error due to linearization to measurement error. Should be below 1. 
+    self.trueNonlinearity: float
+      As self.nonlinearity, but based on the true atmospheric state 'x_truth'.
     """
     self.nonlinearity = np.zeros(self.x_n)*np.nan
     self.trueNonlinearity = np.nan
     if not self.converged:
       print "did not converge"
-      return
+      return self.nonlinearity, self.trueNonlinearity
     lamb, II = np.linalg.eig(self.S_aposterior_i[self.convI])
     S_Ep_inv = _invertMatrix(np.array(self.y_cov))
     lamb[np.isclose(lamb,0)] = 0
     if np.any(lamb < 0 ):
       print "found negative eigenvalues of S_aposterior_i, S_aposterior_i not semipositive definite!"
-      return
+      return self.nonlinearity, self.trueNonlinearity
     error_pattern = lamb**0.5 * II
     for hh in range(self.x_n):
       x_hat = self.x_i[self.convI] + error_pattern[:,hh] #estimated truth
@@ -345,23 +352,24 @@ class optimalEstimation(object):
       y_truth = self.forward(x_truth,**self.forwardKwArgs)
       del_y = (y_truth - self.y_i[self.convI]  - self.K_i[self.convI].dot((x_hat - self.x_i[self.convI]).values))
       self.trueNonlinearity = del_y.T.dot(S_Ep_inv).dot(del_y)
-    return
+    return self.nonlinearity, self.trueNonlinearity
       
   def chiSquareTest(self,significance=0.05):
     """
-    test with significance level 'significance' whether 
+    test with significance level 'significance' whether retrieval agrees with measurements (see chapter 12.3.2 of Rodgers, 2000)
+    
     Parameters
     ---------- 
     significance  : real, optional
-      significance level, defaults to 0.05, i.e. 5%.
+      significance level, defaults to 0.05, i.e. probability is 5% that correct null hypothesis is rejected.
       
     Returns
     -------
     self.chi2Passed : bool
-      True if chi² test passed, i.e. OE converged correctly
-    self.chi2
+      True if chi² test passed, i.e. OE  retrieval agrees with measurements and null hypothesis is NOT rejected.
+    self.chi2 : real
       chi² value
-    self.chi2Test
+    self.chi2Test : real
       chi²  cutoff value with significance 'significance'
       
     """
@@ -375,7 +383,7 @@ class optimalEstimation(object):
 
     #Rodgers eq. 12.9
     S_deyd = self.y_cov.values.dot(_invertMatrix(self.K_i[self.convI].values.dot(self.x_cov.values.dot(self.K_i[self.convI].values.T)) + self.y_cov)).dot(self.y_cov.values) 
-    delta_y = self.y_i[self.convI] - y_obs
+    delta_y = self.y_i[self.convI] - self.y_obs
     self.chi2 =  delta_y.T.dot(_invertMatrix(S_deyd)).dot(delta_y)
     self.chi2Test = scipy.stats.chi2.isf(significance,self.y_n)
 
