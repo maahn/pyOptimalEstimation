@@ -320,7 +320,7 @@ class optimalEstimation(object):
     
     Parameters
     ---------- 
-    x_truth  : array, optional
+    x_truth  : array_like, optional
       estimate the true linearization error self.trueNonlinearity based on x_truth.
     """
     self.nonlinearity = np.zeros(self.x_n)*np.nan
@@ -346,6 +346,43 @@ class optimalEstimation(object):
       del_y = (y_truth - self.y_i[self.convI]  - self.K_i[self.convI].dot((x_hat - self.x_i[self.convI]).values))
       self.trueNonlinearity = del_y.T.dot(S_Ep_inv).dot(del_y)
     return
+      
+  def chiSquareTest(self,significance=0.05):
+    """
+    test with significance level 'significance' whether 
+    Parameters
+    ---------- 
+    significance  : real, optional
+      significance level, defaults to 0.05, i.e. 5%.
+      
+    Returns
+    -------
+    self.chi2Passed : bool
+      True if chi² test passed, i.e. OE converged correctly
+    self.chi2
+      chi² value
+    self.chi2Test
+      chi²  cutoff value with significance 'significance'
+      
+    """
+    self.chi2Passed = False
+    self.chi2 = np.nan
+    self.chi2Test = np.nan
+    
+    if not self.converged:
+      print "did not converge"
+      return self.chi2Passed, self.chi2, self.chi2Test
+
+    #Rodgers eq. 12.9
+    S_deyd = self.y_cov.values.dot(_invertMatrix(self.K_i[self.convI].values.dot(self.x_cov.values.dot(self.K_i[self.convI].values.T)) + self.y_cov)).dot(self.y_cov.values) 
+    delta_y = self.y_i[self.convI] - y_obs
+    self.chi2 =  delta_y.T.dot(_invertMatrix(S_deyd)).dot(delta_y)
+    self.chi2Test = scipy.stats.chi2.isf(significance,self.y_n)
+
+    self.chi2Passed = self.chi2 <= self.chi2Test
+
+    return self.chi2Passed, self.chi2, self.chi2Test
+    
       
   def saveResults(self,fname):
     r'''
