@@ -35,7 +35,13 @@ class optimalEstimation(object):
   y_obs : pn.Series or list or np.ndarray
       observed measurement vector y.
   forward : function
-      forward model expected as ``forward(x,**forwardKwArgs): return y``
+      forward model expected as ``forward(xb,**forwardKwArgs): return y`` with xb = pn.concat((x,b))
+  b_vars : list of str, optional
+      names of the elements of parameter vector b. defaults to [].
+  b_param : pn.Series or list or np.ndarray
+      parameter vector b.  defaults to []. Note that defining b_param makes only sence if b_cov != 0. Otherwise it is easier (and cheaper) to hardcode b into the forward operator. 
+  b_cov : pn.DataFrame or list or np.ndarray
+      covariance matrix of parameter b. defaults to [[]].
   forwardKwArgs : dict,optional
       additional keyword arguments for forward function
   x_lowerLimit : dict, optional
@@ -82,7 +88,7 @@ class optimalEstimation(object):
   .. [1] Turner, D. D., and U. Löhnert, 2014: Information Content and Uncertainties in Thermodynamic Profiles and Liquid Cloud Properties Retrieved from the Ground-Based Atmospheric Emitted Radiance Interferometer (AERI). Journal of Applied Meteorology & Climatology, 53, 752–771, doi:10.1175/JAMC-D-13-0126.1.
 
   '''  
-  def __init__(self, x_vars, x_ap, x_cov, y_vars, y_cov, y_obs, forward, x_lowerLimit={}, x_upperLimit={}, useFactorInJac = True, gammaFactor=None, disturbance =1.01, convergenceFactor=10, forwardKwArgs = {}):
+  def __init__(self, x_vars, x_ap, x_cov, y_vars, y_cov, y_obs, forward, b_vars=[], b_param = [], b_cov=[[]], x_lowerLimit={}, x_upperLimit={}, useFactorInJac = True, gammaFactor=None, disturbance =1.01, convergenceFactor=10, forwardKwArgs = {}):
     self.x_vars = x_vars
     self.x_ap = pn.Series(x_ap,index=self.x_vars)
     self.x_cov = pn.DataFrame(x_cov,index=self.x_vars,columns=self.x_vars)
@@ -94,6 +100,11 @@ class optimalEstimation(object):
     self.forward = forward
     try: self.forward_name = forward.__name__  #We want to save at least the name because the forward function is removed for saving
     except AttributeError:  self.forward_name = None
+    self.b_vars = b_vars
+    self.b_n = len(self.b_vars)
+    self.b_param = pn.Series(b_param,index=self.b_vars)
+    self.b_cov = pn.DataFrame(b_cov,index=self.b_vars,columns=self.b_vars)
+
     self.forwardKwArgs = forwardKwArgs
     self.x_lowerLimit = x_lowerLimit
     self.x_upperLimit = x_upperLimit
@@ -114,66 +125,73 @@ class optimalEstimation(object):
     self.gam_i = None
     
     
-  def getJacobian(self,x):
+  def getJacobian(self,xb):
     r'''
     estimate Jacobian using the forward model and the specified disturbance
 
     Parameters
     ---------- 
-    x  : pn.Series or list or np.ndarray
-      state vector x
+    xb  : pn.Series or list or np.ndarray
+      combination of state vector x and parameter vector b
 
     Returns
     -------
     pn.DataFrame
       Jacobian around x
+    pn.DataFrame
+      Jacobian around b
     '''  
-    x = pn.Series(x,index=self.x_vars,dtype=float)
+    xb_vars = self.x_vars + self.b_vars
+    xb = pn.Series(xb,index=xb_vars,dtype=float)
 
-    #If a factor is used to disturb x, x must not be zero.
-    assert not (self.useFactorInJac and np.any(x==0))
+    #If a factor is used to disturb xb, xb must not be zero.
+    assert not (self.useFactorInJac and np.any(xb==0))
     
     if type(self.disturbance) == float:
       disturbances = dict()
-      for x_key in self.x_vars: disturbances[x_key] = self.disturbance
+      for key in xb_vars: disturbances[key] = self.disturbance
     elif type(self.disturbance) == dict:
        disturbances = self.disturbance
     else:
       raise TypeError("disturbance must be type dict or float")
     
     disturbedKeys = ["reference"]
-    for tup in self.x_vars:
+    for tup in xb_vars:
       disturbedKeys.append("disturbed %s"%tup)
-    self.x_disturbed = pn.DataFrame(columns=self.x_vars, index=disturbedKeys,dtype=float)
-    self.x_disturbed.ix["reference"] = x
-    for x_key in self.x_vars:
-      disturbed_x_key = "disturbed %s"%x_key
-      self.x_disturbed.ix[disturbed_x_key] = x
+    self.xb_disturbed = pn.DataFrame(columns=xb_vars, index=disturbedKeys,dtype=float)
+    self.xb_disturbed.ix["reference"] = xb
+    for xb_key in xb_vars:
+      disturbed_xb_key = "disturbed %s"%xb_key
+      self.xb_disturbed.ix[disturbed_xb_key] = xb
       #apply disturbance here!!
-      if self.useFactorInJac: self.x_disturbed[x_key][disturbed_x_key] = x[x_key] * disturbances[x_key]
-      else: self.x_disturbed[x_key][disturbed_x_key] = x[x_key] + disturbances[x_key]
+      if self.useFactorInJac: self.xb_disturbed[xb_key][disturbed_xb_key] = xb[xb_key] * disturbances[xb_key]
+      else: self.xb_disturbed[xb_key][disturbed_xb_key] = xb[xb_key] + disturbances[xb_key]
       #import pdb;pdb.set_trace()
     self.y_disturbed = pn.DataFrame(columns=self.y_vars, index=disturbedKeys)
-    for x_dist in self.x_disturbed.index:
-       self.y_disturbed.ix[x_dist] = self.forward(self.x_disturbed.ix[x_dist],**self.forwardKwArgs)
+    for xb_dist in self.xb_disturbed.index:
+       self.y_disturbed.ix[xb_dist] = self.forward(self.xb_disturbed.ix[xb_dist],**self.forwardKwArgs)
 
     y = self.y_disturbed.ix["reference"]
     
     #remove the reference from the disturbed keys!
     disturbedKeys = disturbedKeys[1:]
     #create an empty jacobian matrix
-    jacobian = pn.DataFrame(np.ones((self.y_n,self.x_n)),index=self.y_vars,columns=disturbedKeys)
+    jacobian = pn.DataFrame(np.ones((self.y_n,self.x_n+self.b_n)),index=self.y_vars,columns=disturbedKeys)
     #calc Jacobian
     for y_key in self.y_vars:
-      for x_key in self.x_vars:
+      for x_key in xb_vars:
         #realtive disturbance
         #import pdb;pdb.set_trace()
-        if self.useFactorInJac: dist = x[x_key] * (disturbances[x_key] -1)
+        if self.useFactorInJac: dist = xb[x_key] * (disturbances[x_key] -1)
         else: dist = disturbances[x_key]
         jacobian["disturbed "+x_key][y_key] = (self.y_disturbed[y_key]["disturbed "+x_key] - y[y_key]) /dist
     
     jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
-    return jacobian
+    
+    jacobian_x = jacobian[map(lambda s: "disturbed %s"%s,self.x_vars)]
+    jacobian_b = jacobian[map(lambda s: "disturbed %s"%s,self.b_vars)]
+    
+    return jacobian_x, jacobian_b
 
 
 
@@ -205,10 +223,9 @@ class optimalEstimation(object):
     startTime = time.time()
     
     S_a = np.array(self.x_cov) #Covariance of prior estimate of x
-    S_Ep = np.array(self.y_cov) #S_Epsilon Covariance of measurement noise
-    S_Ep_inv = _invertMatrix(S_Ep) #S_Ep inverted
     S_a_inv = _invertMatrix(S_a) #S_a inverted
     self.K_i = [0]*maxIter #list of jacobians
+    self.K_b_i = [0]*maxIter #list of jacobians for parameter vector
     self.x_i = [0]*(maxIter+1)
     self.y_i = [0]*maxIter
     self.dgf_i=[0]*maxIter
@@ -229,13 +246,22 @@ class optimalEstimation(object):
     self.d_i2[0] = 1e333
     
     for i in range(maxIter):
-      self.K_i[i] = self.getJacobian(self.x_i[i])
-    
+      
+      self.K_i[i], self.K_b_i[i] = self.getJacobian(pn.concat((self.x_i[i],self.b_param)))
+      
+      if np.sum(self.b_cov.shape) > 0:
+        S_Ep_b = self.K_b_i[i].values.dot(self.b_cov.values).dot(self.K_b_i[i].values.T)
+      else:
+        S_Ep_b = 0
+      S_Ep = self.y_cov.values + S_Ep_b #S_Epsilon Covariance of measurement noise including parameter uncertainty (Rodgers, sec 3.4.3)
+      S_Ep_inv = _invertMatrix(S_Ep) #S_Ep inverted
+
+
       assert np.all(self.y_disturbed.keys() == self.y_cov.keys())
       assert np.all(self.y_cov.keys() == self.K_i[i].index)
       assert np.all(self.x_cov.index ==  self.x_ap.index)
-      assert np.all( self.x_ap.index ==  self.x_disturbed.columns)
-      assert np.all(self.x_disturbed.index[1:] == self.K_i[i].columns)
+      assert np.all(self.x_ap.index.tolist()+self.b_param.index.tolist() ==  self.xb_disturbed.columns)
+      assert np.all(self.xb_disturbed.index[1:].tolist() == self.K_i[i].columns.tolist()+self.K_b_i[i].columns.tolist())
       
       self.y_i[i] = self.y_disturbed.ix["reference"]
       K = np.array(self.K_i[i])
@@ -298,6 +324,7 @@ class optimalEstimation(object):
           print "%.2f s, iteration %i, degrees of freedom: %.2f of %i. convergence criteria NOT fullfilled  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])
           
     self.K_i = self.K_i[:i+1]
+    self.K_b_i = self.K_b_i[:i+1]
     self.x_i = self.x_i[:i+2]
     self.y_i = self.y_i[:i+1]
     self.dgf_i = self.dgf_i[:i+1]
@@ -344,12 +371,14 @@ class optimalEstimation(object):
     error_pattern = lamb**0.5 * II
     for hh in range(self.x_n):
       x_hat = self.x_i[self.convI] + error_pattern[:,hh] #estimated truth
-      y_hat = self.forward(x_hat,**self.forwardKwArgs)
+      xb_hat = pn.concat((x_hat,self.b_param))
+      y_hat = self.forward(xb_hat,**self.forwardKwArgs)
       del_y = (y_hat - self.y_i[self.convI]  - self.K_i[self.convI].dot((x_hat - self.x_i[self.convI]).values))
       self.nonlinearity[hh] = del_y.T.dot(S_Ep_inv).dot(del_y)
       
     if x_truth is not None:
-      y_truth = self.forward(x_truth,**self.forwardKwArgs)
+      xb_truth = pn.concat((x_truth,self.b_param))
+      y_truth = self.forward(xb_truth,**self.forwardKwArgs)
       del_y = (y_truth - self.y_i[self.convI]  - self.K_i[self.convI].dot((x_hat - self.x_i[self.convI]).values))
       self.trueNonlinearity = del_y.T.dot(S_Ep_inv).dot(del_y)
     return self.nonlinearity, self.trueNonlinearity
