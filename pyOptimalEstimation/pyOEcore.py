@@ -5,8 +5,14 @@
 #http://gop.meteo.uni-koeln.de/software
 
 
+from __future__ import absolute_import
 from __future__ import division
-import cPickle as pickle
+from __future__ import print_function
+from __future__ import unicode_literals
+try:
+  import cPickle as pickle
+except ImportError:
+  import pickle  
 import time
 from copy import deepcopy 
 import numpy as np
@@ -188,9 +194,8 @@ class optimalEstimation(object):
         jacobian["disturbed "+x_key][y_key] = (self.y_disturbed[y_key]["disturbed "+x_key] - y[y_key]) /dist
     
     jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
-    
-    jacobian_x = jacobian[map(lambda s: "disturbed %s"%s,self.x_vars)]
-    jacobian_b = jacobian[map(lambda s: "disturbed %s"%s,self.b_vars)]
+    jacobian_x = jacobian[["disturbed %s"%s for s in self.x_vars]]
+    jacobian_b = jacobian[["disturbed %s"%s for s in self.b_vars]]
     
     return jacobian_x, jacobian_b
 
@@ -283,16 +288,16 @@ class optimalEstimation(object):
       #check whether i+1 is valid
       for jj,xKey in enumerate(self.x_vars):
         if xKey in self.x_lowerLimit.keys() and self.x_i[i+1][jj] < self.x_lowerLimit[xKey]: 
-          print "#"*60
-          print "reset due to x_lowerLimit: %s from %f to %f in iteration %d"%(xKey,self.x_i[i+1][jj],self.x_ap[jj],i)
+          print("#"*60)
+          print("reset due to x_lowerLimit: %s from %f to %f in iteration %d"%(xKey,self.x_i[i+1][jj],self.x_ap[jj],i))
           self.x_i[i+1][jj] = self.x_ap[jj]
         if xKey in self.x_upperLimit.keys() and self.x_i[i+1][jj] > self.x_upperLimit[xKey]: 
-          print "#"*60
-          print "reset due to x_upperLimit: %s from %f to %f in iteration %d"%(xKey,self.x_i[i+1][jj],self.x_ap[jj],i)
+          print("#"*60)
+          print("reset due to x_upperLimit: %s from %f to %f in iteration %d"%(xKey,self.x_i[i+1][jj],self.x_ap[jj],i))
           self.x_i[i+1][jj] = self.x_ap[jj]        
         if np.isnan(self.x_i[i+1][jj]):
-          print "#"*60
-          print "reset due to nan: %s from %f to %f in iteration %d"%(xKey,self.x_i[i+1][jj],self.x_ap[jj],i)
+          print("#"*60)
+          print("reset due to nan: %s from %f to %f in iteration %d"%(xKey,self.x_i[i+1][jj],self.x_ap[jj],i))
           self.x_i[i+1][jj] = self.x_ap[jj]        
 
           
@@ -301,11 +306,11 @@ class optimalEstimation(object):
       
       #stop if we converged in the step before
       if self.converged:
-        print "%.2f s, iteration %i, degrees of freedom: %.2f of %i. Done.  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])        
+        print("%.2f s, iteration %i, degrees of freedom: %.2f of %i. Done.  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i]) )       
         break
       
       elif ((time.time()-startTime)> maxTime):
-          print "%.2f s, iteration %i, degrees of freedom: %.2f of %i. maximum Time exceeded! STOP  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])          
+          print("%.2f s, iteration %i, degrees of freedom: %.2f of %i. maximum Time exceeded! STOP  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i]))          
           
           self.converged = False
           #failed = True
@@ -314,15 +319,15 @@ class optimalEstimation(object):
       #calculate the convergence criteria
       if i!=0:
         if np.abs(self.d_i2[i]) < self.y_n/float(self.convergenceFactor) and self.gam_i[i] == 1 and self.d_i2[i] != 0:
-          print "%.2f s, iteration %i, degrees of freedom: %.2f of %i. convergence criteria fullfilled  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])
+          print("%.2f s, iteration %i, degrees of freedom: %.2f of %i. convergence criteria fullfilled  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i]))
           self.converged = True
         elif (i>1) and (self.dgf_i[i] == 0):
-          print "%.2f s, iteration %i, degrees of freedom: %.2f of %i.degrees of freedom 0! STOP  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])          
+          print("%.2f s, iteration %i, degrees of freedom: %.2f of %i.degrees of freedom 0! STOP  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i]))          
           self.converged = False
           #failed = True
           break
         else:
-          print "%.2f s, iteration %i, degrees of freedom: %.2f of %i. convergence criteria NOT fullfilled  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i])
+          print("%.2f s, iteration %i, degrees of freedom: %.2f of %i. convergence criteria NOT fullfilled  %.3f"%(time.time()-startTime,i,self.dgf_i[i],self.x_n,self.d_i2[i]))
           
     self.K_i = self.K_i[:i+1]
     self.K_b_i = self.K_b_i[:i+1]
@@ -361,13 +366,13 @@ class optimalEstimation(object):
     self.nonlinearity = np.zeros(self.x_n)*np.nan
     self.trueNonlinearity = np.nan
     if not self.converged:
-      print "did not converge"
+      print("did not converge")
       return self.nonlinearity, self.trueNonlinearity
     lamb, II = np.linalg.eig(self.S_aposterior_i[self.convI])
     S_Ep_inv = _invertMatrix(np.array(self.y_cov))
     lamb[np.isclose(lamb,0)] = 0
     if np.any(lamb < 0 ):
-      print "found negative eigenvalues of S_aposterior_i, S_aposterior_i not semipositive definite!"
+      print("found negative eigenvalues of S_aposterior_i, S_aposterior_i not semipositive definite!")
       return self.nonlinearity, self.trueNonlinearity
     error_pattern = lamb**0.5 * II
     for hh in range(self.x_n):
@@ -408,7 +413,7 @@ class optimalEstimation(object):
     self.chi2Test = np.nan
     
     if not self.converged:
-      print "did not converge"
+      print("did not converge")
       return self.chi2Passed, self.chi2, self.chi2Test
 
     #Rodgers eq. 12.9
@@ -527,7 +532,7 @@ class optimalEstimation(object):
     sp.set_xlim(0,len(self.x_i)-1)
     sp.axvline(len(self.x_i)-2,ls=":",color="k")
     sp.axvline(ind,color="k")
-    xlabels = map(lambda x:"%i"%x,sp.get_xticks())
+    xlabels = list(map(lambda x:"%i"%x,sp.get_xticks()))
     xlabels[-1] = "truth"
     sp.set_xticklabels(xlabels)
     if fileName:
