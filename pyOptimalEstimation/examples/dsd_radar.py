@@ -7,11 +7,12 @@ Retrieve N0 and lambda of the drop size distribution N(D) = N0 * exp(-lambda*D) 
 Copyright (C) 2014-15 Maximilian Maahn, IGMK (mmaahn_(AT)_meteo.uni-koeln.de)
 http://gop.meteo.uni-koeln.de/software
 """
+from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
 import pyOptimalEstimation as pyOE
 
-#Define the forward operator, accepts state vector X [N0,lam] as input, and rturns measurement vector Y [Ze]
+#Define the forward operator, accepts state vector X [N0,lam] as input, and returns measurement vector Y [Ze]
 def forward(X, D=np.logspace(-4,-2,50)):
   if len(X) == 2:
     N0log,lam = X
@@ -27,7 +28,7 @@ def forward(X, D=np.logspace(-4,-2,50)):
 x_vars = ["N0log","lam"]
 y_vars = ["Ze"]
 
-#prior knowledge. Note that the numbers provided do not have any scientific meaning.
+#prior knowledge. Note that the provided numbers do not have any scientific meaning.
 #first guess for X
 x_ap = [3,4100]
 #covariance matrix for X

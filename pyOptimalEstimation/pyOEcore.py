@@ -5,6 +5,7 @@
 #http://gop.meteo.uni-koeln.de/software
 
 
+from __future__ import division
 import cPickle as pickle
 import time
 from copy import deepcopy 

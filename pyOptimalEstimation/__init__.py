@@ -20,4 +20,5 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
 
+from __future__ import division
 from pyOEcore import optimalEstimation, optimalEstimation_loadResults
