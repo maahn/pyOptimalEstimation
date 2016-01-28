@@ -23,7 +23,7 @@ Change to the folder containing the project and do ::
 
 in the terminal. If you do not have root priviliges, you can also do ::
 
-  python setup.py --user install
+  python setup.py install --user
 
 which will install IMProToo in userbase/lib/pythonX.Y/site-packages or ::
 
