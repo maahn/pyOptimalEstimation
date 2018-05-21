@@ -21,15 +21,15 @@ Change to the folder containing the project and do ::
 
   python setup.py install
 
-in the terminal. If you do not have root priviliges, you can also do ::
+in the terminal. If you do not have root privileges, you can also do ::
 
   python setup.py install --user
 
-which will install IMProToo in userbase/lib/pythonX.Y/site-packages or ::
+which will install pyOptimalEstimation in userbase/lib/pythonX.Y/site-packages or ::
 
   python setup.py install --home=~
 
-which will install IMProToo in ~/lib/python.
+which will install pyOptimalEstimation in ~/lib/python.
 
 
 Example
