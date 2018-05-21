@@ -31,12 +31,11 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 if __name__ == "__main__":
   setup(
       name='pyOptimalEstimation',
-      version='0.1dev',
+      version='0.2dev',
       packages=['pyOptimalEstimation',],
       license='GNU General Public License 3',
       author="Maximilian Maahn",
-      author_email="mmaahn@meteo.uni-koeln.de",
-      long_description=open('README.md').read(),
+      author_email="maximilian.maahn@colorado.edu",
       classifiers=[
           "Development Status :: 4 - Beta",
           "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
