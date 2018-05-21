@@ -22,6 +22,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from setuptools import setup
 
+# read the contents of your README file
+from os import path
+this_directory = path.abspath(path.dirname(__file__))
+with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
+
 if __name__ == "__main__":
   setup(
       name='pyOptimalEstimation',
@@ -33,13 +39,14 @@ if __name__ == "__main__":
       long_description=open('README.md').read(),
       classifiers=[
           "Development Status :: 4 - Beta",
-          "Topic :: Utilities",
           "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
           "Operating System :: OS Independent",
-          "Programming Language :: Python :: 2.7"
-          "Programming Language :: Python :: 3"
+          "Programming Language :: Python :: 2.7",
+          "Programming Language :: Python :: 3",
           'Intended Audience :: Science/Research',
           'Topic :: Scientific/Engineering',
           ],
       install_requires = ['numpy', 'matplotlib', 'pandas' , 'scipy'],
-  )
+      long_description=long_description,
+      long_description_content_type='text/markdown'
+      )
