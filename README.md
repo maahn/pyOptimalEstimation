@@ -15,11 +15,12 @@ in the terminal. If you do not have root privileges, you can also do:
 ```
   python setup.py --user install
 ```
-which will install IMProToo in userbase/lib/pythonX.Y/site-packages or
+which will install pyOptimalEstimation in userbase/lib/pythonX.Y/site-packages
+or
 ```
   python setup.py install --home=~
 ```
-which will install IMProToo in ~/lib/python.
+which will install pyOptimalEstimation in ~/lib/python.
 
 ## Manual
 
