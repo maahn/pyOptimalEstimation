@@ -96,6 +96,10 @@ class optimalEstimation(object):
 
   '''  
   def __init__(self, x_vars, x_ap, x_cov, y_vars, y_cov, y_obs, forward, b_vars=[], b_param = [], b_cov=[[]], x_lowerLimit={}, x_upperLimit={}, useFactorInJac = True, gammaFactor=None, disturbance =1.01, convergenceFactor=10, forwardKwArgs = {}):
+
+    for inVar in [x_ap, x_cov, y_cov, y_obs]:
+      assert not np.any(np.isnan(inVar))
+    
     self.x_vars = x_vars
     self.x_ap = pn.Series(x_ap,index=self.x_vars)
     self.x_cov = pn.DataFrame(x_cov,index=self.x_vars,columns=self.x_vars)
@@ -130,7 +134,8 @@ class optimalEstimation(object):
     self.S_aposterior_i = None
     #self.Pxy_i = None
     self.gam_i = None
-    
+
+
     
   def getJacobian(self,xb):
     r'''
