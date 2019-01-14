@@ -23,8 +23,9 @@ def forward(X, D=np.logspace(-4,-2,50)):
   else:
     N0log,lam,mu = X
   N0 = 10**N0log
+  dD = np.gradient(D)
   N = N0 * np.exp(-lam * D**mu)
-  Z = 1e18 * np.sum(N*D**6)
+  Z = 1e18 * np.sum(N*D**6*dD)
   return [10*np.log10(Z)]
 
 #define names for X and Y

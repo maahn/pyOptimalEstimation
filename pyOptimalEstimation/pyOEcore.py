@@ -12,7 +12,7 @@ from __future__ import unicode_literals
 import time
 from copy import deepcopy
 import numpy as np
-import scipy
+import scipy.stats
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager
 import pandas as pn
@@ -504,7 +504,7 @@ class optimalEstimation(object):
       l = sp.legend(loc="upper left",prop=font_manager.FontProperties(size=8))
       l.get_frame().set_alpha(0.5)
       #sp.set_xlabel("iteration")
-      sp.set_ylabel("normalized y-value")
+      sp.set_ylabel("normalized x-value")
       #sp.yaxis.set_label_coords(-0.08, 0.5)
       sp.axvline(ind,color="k")
       sp.set_xlim(0,len(self.x_i)-1)
@@ -521,7 +521,7 @@ class optimalEstimation(object):
       l = sp.legend(loc="upper left",prop=font_manager.FontProperties(size=8))
       l.get_frame().set_alpha(0.5)
       #sp.set_xlabel("iteration")
-      sp.set_ylabel("normalized x-value")
+      sp.set_ylabel("normalized y-value")
       #sp.yaxis.set_label_coords(-0.08, 0.5)
       sp.axvline(ind,color="k")
       sp.axvline(len(self.x_i)-2,ls=":",color="k")
