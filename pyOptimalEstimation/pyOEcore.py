@@ -204,10 +204,10 @@ class optimalEstimation(object):
             disturbedKeys.append("disturbed %s" % tup)
         self.xb_disturbed = pn.DataFrame(
             columns=xb_vars, index=disturbedKeys, dtype=float)
-        self.xb_disturbed.ix["reference"] = xb
+        self.xb_disturbed.loc["reference"] = xb
         for xb_key in xb_vars:
             disturbed_xb_key = "disturbed %s" % xb_key
-            self.xb_disturbed.ix[disturbed_xb_key] = xb
+            self.xb_disturbed.loc[disturbed_xb_key] = xb
             # apply disturbance here!!
             if self.useFactorInJac:
                 self.xb_disturbed[xb_key][disturbed_xb_key] = xb[xb_key] * \
@@ -221,10 +221,10 @@ class optimalEstimation(object):
             dtype=np.float64
             )
         for xb_dist in self.xb_disturbed.index:
-            self.y_disturbed.ix[xb_dist] = self.forward(
-                self.xb_disturbed.ix[xb_dist], **self.forwardKwArgs)
+            self.y_disturbed.loc[xb_dist] = self.forward(
+                self.xb_disturbed.loc[xb_dist], **self.forwardKwArgs)
 
-        y = self.y_disturbed.ix["reference"]
+        y = self.y_disturbed.loc["reference"]
 
         # remove the reference from the disturbed keys!
         disturbedKeys = disturbedKeys[1:]
@@ -321,7 +321,7 @@ class optimalEstimation(object):
             assert np.all(self.xb_disturbed.index[1:].tolist(
             ) == self.K_i[i].columns.tolist()+self.K_b_i[i].columns.tolist())
 
-            self.y_i[i] = self.y_disturbed.ix["reference"]
+            self.y_i[i] = self.y_disturbed.loc["reference"]
             K = np.array(self.K_i[i])
 
             # reformulated using Turner and Löhnert 2013:
