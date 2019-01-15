@@ -484,8 +484,9 @@ class optimalEstimation(object):
             xb_truth = pn.concat((x_truth, self.b_param))
             y_truth = self.forward(xb_truth, **self.forwardKwArgs)
             del_y = (y_truth - self.y_i[self.convI] - self.K_i[self.convI].dot(
-                (x_hat - self.x_i[self.convI]).values))
+                (x_truth - self.x_i[self.convI]).values))
             self.trueNonlinearity = del_y.T.dot(S_Ep_inv).dot(del_y)
+
         return self.nonlinearity, self.trueNonlinearity
 
     def chiSquareTest(self, significance=0.05):
