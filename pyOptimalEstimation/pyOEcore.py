@@ -219,7 +219,7 @@ class optimalEstimation(object):
             columns=self.y_vars,
             index=disturbedKeys,
             dtype=np.float64
-            )
+        )
         for xb_dist in self.xb_disturbed.index:
             self.y_disturbed.loc[xb_dist] = self.forward(
                 self.xb_disturbed.loc[xb_dist], **self.forwardKwArgs)
@@ -649,6 +649,52 @@ class optimalEstimation(object):
         if fileName:
             fig.savefig(fileName)
         return fig
+
+    def summary(self, returnXarray=False):
+        '''Provide a summary of the retrieval results as a dictionary.
+
+        Parameters
+        ----------
+        returnXarray : {bool}, optional
+          return xarray dataset instead of dict. Can be easily combined when
+          applying the retrieval multiple times. (the default is False)
+
+        Returns
+        -------
+        dict or xarray.Dataset
+          Summary of retrieval results
+        '''
+
+        if self.convI < 0:
+            raise RuntimeError("Retrieval did not run successfully")
+
+        summary = {}
+        summary['x_retrieved'] = self.x_i[self.convI].rename_axis('x_vars')
+        summary['y_retrieved'] = self.y_i[self.convI].rename_axis('y_vars')
+        if hasattr(self, 'x_truth'):
+            summary['x_truth'] = self.x_truth.rename_axis('x_vars')
+        summary['y_obs'] = self.y_obs.rename_axis('y_vars')
+        summary['x_err'] = np.sqrt(
+            pn.Series(np.diag(
+                self.S_aposterior_i[self.convI]), index=self.x_vars)
+        ).rename_axis('x_vars')
+        summary['x_dgf'] = pn.Series(
+            np.diag(self.A_i[self.convI]), index=self.x_vars
+        ).rename_axis('x_vars')
+        if hasattr(self, 'nonlinearity'):
+            summary['nonlinearity'] = self.nonlinearity
+        if hasattr(self, 'trueNonlinearity'):
+            summary['trueNonlinearity'] = self.trueNonlinearity
+        if hasattr(self, 'chi2'):
+            summary['chi2'] = self.chi2
+        summary['dgf'] = self.dgf_i[self.convI]
+        summary['iter'] = self.convI
+
+        if returnXarray:
+            import xarray as xr
+            summary = xr.Dataset(summary)
+
+        return summary
 
 
 def optimalEstimation_loadResults(fname):
