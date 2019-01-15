@@ -215,9 +215,11 @@ class optimalEstimation(object):
             else:
                 self.xb_disturbed[xb_key][disturbed_xb_key] = xb[xb_key] + \
                     disturbances[xb_key]
-            # import pdb;pdb.set_trace()
         self.y_disturbed = pn.DataFrame(
-            columns=self.y_vars, index=disturbedKeys)
+            columns=self.y_vars,
+            index=disturbedKeys,
+            dtype=np.float64
+            )
         for xb_dist in self.xb_disturbed.index:
             self.y_disturbed.ix[xb_dist] = self.forward(
                 self.xb_disturbed.ix[xb_dist], **self.forwardKwArgs)
