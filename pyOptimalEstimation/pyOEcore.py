@@ -15,6 +15,7 @@ import numpy as np
 import scipy.stats
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager
+import matplotlib.ticker as ticker
 import pandas as pn
 import warnings
 
@@ -27,29 +28,34 @@ class optimalEstimation(object):
     ----------
     x_vars : list of str
         names of the elements of state vector x.
-    x_ap : pn.Series or list or np.ndarray
+    x_a : pn.Series or list or np.ndarray
         prior information of state x.
-    x_cov : pn.DataFrame or list or np.ndarray
+    S_a : pn.DataFrame or list or np.ndarray
         covariance matrix of state x.
     y_vars : list of str
         names of the elements of state vector x
-    y_cov : pn.DataFrame or list or np.ndarray
-        covariance matrix of measurement y.
     y_obs : pn.Series or list or np.ndarray
         observed measurement vector y.
+    S_y : pn.DataFrame or list or np.ndarray
+        covariance matrix of measurement y. If there is no b vector, S_y
+        is sequal to S_e
     forward : function
         forward model expected as ``forward(xb,**forwardKwArgs): return y``
-        with xb = pn.concat((x,b))
+        with xb = pn.concat((x,b)).
+    x_truth : pn.Series or list or np.ndarray, optional
+        If truth of state x is known, it can added to the data object. If
+        provided, the value will be used for the routines testLinearity and
+        plotIterations, but _not_ by the retrieval itself. Defaults to None/
     b_vars : list of str, optional
         names of the elements of parameter vector b. defaults to [].
-    b_param : pn.Series or list or np.ndarray
-        parameter vector b.  defaults to []. Note that defining b_param makes
-        only sence if b_cov != 0. Otherwise it is easier (and cheaper) to
+    b_p : pn.Series or list or np.ndarray.
+        parameter vector b.  defaults to []. Note that defining b_p makes
+        only sence if S_b != 0. Otherwise it is easier (and cheaper) to
         hardcode b into the forward operator.
-    b_cov : pn.DataFrame or list or np.ndarray
+    S_b : pn.DataFrame or list or np.ndarray
         covariance matrix of parameter b. defaults to [[]].
     forwardKwArgs : dict,optional
-        additional keyword arguments for forward function
+        additional keyword arguments for forward function.
     x_lowerLimit : dict, optional
         reset state vector x[key] to x_lowerLimit[key] in case x_lowerLimit is
         undercut. defaults to {}.
@@ -63,7 +69,7 @@ class optimalEstimation(object):
         True if disturbance should be applied by multiplication, False if it
         should by applied by additiion. Defaults to True.
     gammaFactor : list of floats, optional
-        Use additional gamma parameter for retrieval [1]_.
+        Use additional gamma parameter for retrieval, see [1]_.
 
     Attributes
     ----------
@@ -105,15 +111,16 @@ class optimalEstimation(object):
 
     def __init__(self,
                  x_vars,
-                 x_ap,
-                 x_cov,
+                 x_a,
+                 S_a,
                  y_vars,
-                 y_cov,
                  y_obs,
+                 S_y,
                  forward,
+                 x_truth=None,
                  b_vars=[],
-                 b_param=[],
-                 b_cov=[[]],
+                 b_p=[],
+                 S_b=[[]],
                  x_lowerLimit={},
                  x_upperLimit={},
                  useFactorInJac=True,
@@ -123,20 +130,21 @@ class optimalEstimation(object):
                  forwardKwArgs={},
                  ):
 
-        for inVar in [x_ap, x_cov, y_cov, y_obs]:
+        for inVar in [x_a, S_a, S_y, y_obs]:
             assert not np.any(np.isnan(inVar))
 
         self.x_vars = x_vars
-        self.x_ap = pn.Series(x_ap, index=self.x_vars)
-        self.x_cov = pn.DataFrame(
-            x_cov, index=self.x_vars, columns=self.x_vars)
+        self.x_a = pn.Series(x_a, index=self.x_vars)
+        self.S_a = pn.DataFrame(
+            S_a, index=self.x_vars, columns=self.x_vars)
         self.x_n = len(self.x_vars)
         self.y_vars = y_vars
-        self.y_cov = pn.DataFrame(
-            y_cov, index=self.y_vars, columns=self.y_vars)
+        self.S_y = pn.DataFrame(
+            S_y, index=self.y_vars, columns=self.y_vars)
         self.y_obs = pn.Series(y_obs, index=self.y_vars)
         self.y_n = len(self.y_vars)
         self.forward = forward
+        self.x_truth = pn.Series(x_truth, index=self.x_vars)
         try:
             # We want to save at least the name because the forward function
             # is removed for saving
@@ -145,9 +153,9 @@ class optimalEstimation(object):
             self.forward_name = None
         self.b_vars = b_vars
         self.b_n = len(self.b_vars)
-        self.b_param = pn.Series(b_param, index=self.b_vars)
-        self.b_cov = pn.DataFrame(
-            b_cov, index=self.b_vars, columns=self.b_vars)
+        self.b_p = pn.Series(b_p, index=self.b_vars)
+        self.S_b = pn.DataFrame(
+            S_b, index=self.b_vars, columns=self.b_vars)
 
         self.forwardKwArgs = forwardKwArgs
         self.x_lowerLimit = x_lowerLimit
@@ -259,7 +267,7 @@ class optimalEstimation(object):
         maxIter  : int, optional
           maximum number of iterations, defaults to 10
         x_0  : pn.Series or list or np.ndarray, optional
-          first guess for x. If x_0 == None, x_ap is taken as first guess.
+          first guess for x. If x_0 == None, x_a is taken as first guess.
         maxTime  : int, optional
           maximum runTime, defaults to 1e7 (~ 4 months).
           Note that the forward model is *not* killed if time is exceeded
@@ -275,7 +283,7 @@ class optimalEstimation(object):
         self.converged = False
         startTime = time.time()
 
-        S_a = np.array(self.x_cov)  # Covariance of prior estimate of x
+        S_a = np.array(self.S_a)  # Covariance of prior estimate of x
         S_a_inv = _invertMatrix(S_a)  # S_a inverted
         self.K_i = [0]*maxIter  # list of jacobians
         self.K_b_i = [0]*maxIter  # list of jacobians for parameter vector
@@ -293,7 +301,7 @@ class optimalEstimation(object):
             self.gam_i[:len(self.gammaFactor)] = self.gammaFactor
 
         if x_0 is None:
-            self.x_i[0] = self.x_ap
+            self.x_i[0] = self.x_a
         else:
             self.x_i[0] = pn.Series(x_0, index=self.x_vars)
         self.d_i2[0] = 1e333
@@ -301,23 +309,23 @@ class optimalEstimation(object):
         for i in range(maxIter):
 
             self.K_i[i], self.K_b_i[i] = self.getJacobian(
-                pn.concat((self.x_i[i], self.b_param)))
+                pn.concat((self.x_i[i], self.b_p)))
 
-            if np.sum(self.b_cov.shape) > 0:
+            if np.sum(self.S_b.shape) > 0:
                 S_Ep_b = self.K_b_i[i].values.dot(
-                    self.b_cov.values).dot(self.K_b_i[i].values.T)
+                    self.S_b.values).dot(self.K_b_i[i].values.T)
             else:
                 S_Ep_b = 0
             # S_Epsilon Covariance of measurement noise including parameter
             # uncertainty (Rodgers, sec 3.4.3)
-            S_Ep = self.y_cov.values + S_Ep_b
+            S_Ep = self.S_y.values + S_Ep_b
             S_Ep_inv = _invertMatrix(S_Ep)  # S_Ep inverted
 
-            assert np.all(self.y_disturbed.keys() == self.y_cov.keys())
-            assert np.all(self.y_cov.keys() == self.K_i[i].index)
-            assert np.all(self.x_cov.index == self.x_ap.index)
-            assert np.all(self.x_ap.index.tolist(
-            )+self.b_param.index.tolist() == self.xb_disturbed.columns)
+            assert np.all(self.y_disturbed.keys() == self.S_y.keys())
+            assert np.all(self.S_y.keys() == self.K_i[i].index)
+            assert np.all(self.S_a.index == self.x_a.index)
+            assert np.all(self.x_a.index.tolist(
+            )+self.b_p.index.tolist() == self.xb_disturbed.columns)
             assert np.all(self.xb_disturbed.index[1:].tolist(
             ) == self.K_i[i].columns.tolist()+self.K_b_i[i].columns.tolist())
 
@@ -332,16 +340,16 @@ class optimalEstimation(object):
             ).dot(B_inv)  # eq2
             self.S_aposterior_i[i] = pn.DataFrame(
                 self.S_aposterior_i[i],
-                index=self.x_ap.index,
-                columns=self.x_ap.index
+                index=self.x_a.index,
+                columns=self.x_a.index
             )
             G = B_inv.dot(K.T.dot(S_Ep_inv))
             self.A_i[i] = G.dot(K)  # eq 4
-            self.x_i[i+1] = self.x_ap +\
+            self.x_i[i+1] = self.x_a +\
                 _invertMatrix((self.gam_i[i] * S_a_inv) +
                               K.T.dot(S_Ep_inv.dot(K))).dot(
                 K.T.dot(S_Ep_inv.dot(self.y_obs - self.y_i[i] +
-                                     K.dot(self.x_i[i]-self.x_ap))))  # eq 1
+                                     K.dot(self.x_i[i]-self.x_a))))  # eq 1
             self.dgf_i[i] = np.trace(self.A_i[i])
             # eq. 2.80 Rodgers
             self.H_i[i] = -0.5 * \
@@ -354,21 +362,21 @@ class optimalEstimation(object):
                     print("#"*60)
                     print("reset due to x_lowerLimit: %s from %f to %f in "
                           "iteration %d" % (
-                              xKey, self.x_i[i+1][jj], self.x_ap[jj], i))
-                    self.x_i[i+1][jj] = self.x_ap[jj]
+                              xKey, self.x_i[i+1][jj], self.x_a[jj], i))
+                    self.x_i[i+1][jj] = self.x_a[jj]
                 if (xKey in self.x_upperLimit.keys()) and (
                         self.x_i[i+1][jj] > self.x_upperLimit[xKey]):
                     print("#"*60)
                     print("reset due to x_upperLimit: %s from %f to %f in "
                           "iteration %d" % (
-                              xKey, self.x_i[i+1][jj], self.x_ap[jj], i))
-                    self.x_i[i+1][jj] = self.x_ap[jj]
+                              xKey, self.x_i[i+1][jj], self.x_a[jj], i))
+                    self.x_i[i+1][jj] = self.x_a[jj]
                 if np.isnan(self.x_i[i+1][jj]):
                     print("#"*60)
                     print("reset due to nan: %s from %f to %f in iteration "
                           "%d" % (
-                              xKey, self.x_i[i+1][jj], self.x_ap[jj], i))
-                    self.x_i[i+1][jj] = self.x_ap[jj]
+                              xKey, self.x_i[i+1][jj], self.x_a[jj], i))
+                    self.x_i[i+1][jj] = self.x_a[jj]
 
             # convergence criteria  eq 6
             self.d_i2[i] = (self.x_i[i] - self.x_i[i+1]).T.dot(_invertMatrix(
@@ -413,7 +421,7 @@ class optimalEstimation(object):
 
                     break
                 else:
-                    print("%.2f s, iteration %i, degrees of freedom: "
+                    print("%.2f s, iteration %i, degrees of freedom:"
                           " %.2f of %i. convergence criteria NOT fullfilled "
                           " %.3f" % (
                               time.time()-startTime, i, self.dgf_i[i],
@@ -436,7 +444,7 @@ class optimalEstimation(object):
             self.convI = -9999
         return self.converged
 
-    def testLinearity(self, x_truth=None):
+    def testLinearity(self):
         """
         test whether the solution is moderately linear following chapter
         5.1 of Rodgers 2000.
@@ -446,9 +454,6 @@ class optimalEstimation(object):
 
         Parameters
         ----------
-        x_truth  : array_like, optional
-          estimate the true linearization error self.trueNonlinearity based
-          on x_truth.
 
         Returns
         -------
@@ -457,7 +462,7 @@ class optimalEstimation(object):
           below 1.
         self.trueNonlinearity: float
           As self.nonlinearity, but based on the true atmospheric state
-          'x_truth'.
+          'self.x_truth'.
         """
         self.nonlinearity = np.zeros(self.x_n)*np.nan
         self.trueNonlinearity = np.nan
@@ -465,7 +470,7 @@ class optimalEstimation(object):
             print("did not converge")
             return self.nonlinearity, self.trueNonlinearity
         lamb, II = np.linalg.eig(self.S_aposterior_i[self.convI])
-        S_Ep_inv = _invertMatrix(np.array(self.y_cov))
+        S_Ep_inv = _invertMatrix(np.array(self.S_y))
         lamb[np.isclose(lamb, 0)] = 0
         if np.any(lamb < 0):
             print(
@@ -476,17 +481,17 @@ class optimalEstimation(object):
         for hh in range(self.x_n):
             x_hat = self.x_i[self.convI] + \
                 error_pattern[:, hh]  # estimated truth
-            xb_hat = pn.concat((x_hat, self.b_param))
+            xb_hat = pn.concat((x_hat, self.b_p))
             y_hat = self.forward(xb_hat, **self.forwardKwArgs)
             del_y = (y_hat - self.y_i[self.convI] - self.K_i[self.convI].dot(
                 (x_hat - self.x_i[self.convI]).values))
             self.nonlinearity[hh] = del_y.T.dot(S_Ep_inv).dot(del_y)
 
-        if x_truth is not None:
-            xb_truth = pn.concat((x_truth, self.b_param))
+        if self.x_truth is not None:
+            xb_truth = pn.concat((self.x_truth, self.b_p))
             y_truth = self.forward(xb_truth, **self.forwardKwArgs)
             del_y = (y_truth - self.y_i[self.convI] - self.K_i[self.convI].dot(
-                (x_truth - self.x_i[self.convI]).values))
+                (self.x_truth - self.x_i[self.convI]).values))
             self.trueNonlinearity = del_y.T.dot(S_Ep_inv).dot(del_y)
 
         return self.nonlinearity, self.trueNonlinearity
@@ -494,7 +499,7 @@ class optimalEstimation(object):
     def chiSquareTest(self, significance=0.05):
         """
         test with significance level 'significance' whether retrieval agrees
-         with measurements (see chapter 12.3.2 of Rodgers, 2000)
+        with measurements (see chapter 12.3.2 of Rodgers, 2000)
 
         Parameters
         ----------
@@ -522,10 +527,10 @@ class optimalEstimation(object):
             return self.chi2Passed, self.chi2, self.chi2Test
 
         # Rodgers eq. 12.9
-        S_deyd = self.y_cov.values.dot(_invertMatrix(self.K_i[self.convI
-                                                              ].values.dot(
-            self.x_cov.values.dot(self.K_i[self.convI].values.T)) + self.y_cov
-        )).dot(self.y_cov.values)
+        S_deyd = self.S_y.values.dot(_invertMatrix(self.K_i[self.convI
+                                                            ].values.dot(
+            self.S_a.values.dot(self.K_i[self.convI].values.T)) + self.S_y
+        )).dot(self.S_y.values)
         delta_y = self.y_i[self.convI] - self.y_obs
         self.chi2 = delta_y.T.dot(_invertMatrix(S_deyd)).dot(delta_y)
         self.chi2Test = scipy.stats.chi2.isf(significance, self.y_n)
@@ -554,10 +559,14 @@ class optimalEstimation(object):
         np.save(fname, oeDict)
         return
 
-    def plotIterations(self, fileName=None, x_truth=None):
+    def plotIterations(
+        self,
+        cmap='viridis',
+        figsize=(8, 10),
+    ):
         r'''
         Plot the retrieval results using 4 panels: (1) iterations of x
-        (normalized to x_truth or x[0]), (2) iterations of y (normalized to
+        (normalized to self.x_truth or x[0]), (2) iterations of y (normalized to
         y_obs), (3) iterations of degrees of freedom, (4) iterations of
         convergence criteria
 
@@ -565,15 +574,18 @@ class optimalEstimation(object):
         ----------
         fileName : str, optional
           plot is saved to fileName, if provided
-        x_truth : pn.Series or list or np.ndarray, optional
-          If truth of state x is known, it can be included in the plot.
+        cmap : str, optional
+          colormap for 1st and 2nd panel (default 'hsv')
+        figsize : tuple, optional
+          Figure size in inch (default (8, 10))
 
         Returns
         -------
         matplotlib figure object
           The created figure.
         '''
-        fig = plt.figure(figsize=(8, 10))
+        fig, [sp1, sp2, sp3, sp4] = plt.subplots(figsize=figsize, nrows=4,
+                                                 sharex=True)
         d_i2 = np.array(self.d_i2)
         dgf_i = np.array(self.dgf_i)
 
@@ -585,69 +597,67 @@ class optimalEstimation(object):
             ind = 0
 
         if self.converged:
-            fig.suptitle('converged ' + str(d_i2[ind]) + " " + str(dgf_i[ind]))
+            fig.suptitle('Sucessfully converged. Convergence criterion: %.3g'
+                         ' Degrees of freedom: %.3g' % (d_i2[ind], dgf_i[ind]))
         else:
-            fig.suptitle('NOT converged ' +
-                         str(d_i2[ind]) + " " + str(dgf_i[ind]))
-        sp = fig.add_subplot(411)
-        colors = _niceColors(len(self.x_i[0].keys()))
+            fig.suptitle('Not converged. Convergence criterion: %.3g  Degrees'
+                         ' of freedom: %.3g' % (d_i2[ind], dgf_i[ind]))
+
+        colors = _niceColors(len(self.x_i[0].keys()), cmap=cmap)
         for kk, key in enumerate(self.x_i[0].keys()):
             xs = list()
             for xx in self.x_i[:-1]:
                 xs.append(xx[key])
-            if x_truth is not None:
-                xs.append(x_truth[key])
-                xs = np.array(xs) / x_truth[key]
+            if self.x_truth is not None:
+                xs.append(self.x_truth[key])
+                xs = np.array(xs) / self.x_truth[key]
             else:
                 xs = np.array(xs) / xs[0]
-            sp.plot(xs, label=key, color=colors[kk])
-        leg = sp.legend(loc="upper left",
-                        prop=font_manager.FontProperties(size=8))
+            sp1.plot(xs, label=key, color=colors[kk])
+        leg = sp1.legend(loc="best",
+                         prop=font_manager.FontProperties(size=8))
         leg.get_frame().set_alpha(0.5)
-        # sp.set_xlabel("iteration")
-        sp.set_ylabel("normalized x-value")
+        # sp1.set_xlabel("iteration")
+        if self.x_truth is not None:
+            sp1.set_ylabel("x-values\n(normalized to truth)")
+        else:
+            sp1.set_ylabel("x-values\n(normalized to prior)")
 
-        sp.axvline(ind, color="k")
-        sp.set_xlim(0, len(self.x_i)-1)
-        sp.axvline(len(self.x_i)-2, ls=":", color="k")
-        sp.set_xticklabels("")
-        sp = fig.add_subplot(412)
-        colors = _niceColors(len(self.y_i[0].keys()))
+        sp1.axvline(ind, color="k")
+        sp1.axvline(len(self.x_i)-2, ls=":", color="k")
+
+        colors = _niceColors(len(self.y_i[0].keys()), cmap=cmap)
         for kk, key in enumerate(self.y_i[0].keys()):
             ys = list()
             for yy in self.y_i:
                 ys.append(yy[key])
             ys.append(self.y_obs[key])
             ys = np.array(ys) / ys[-1]
-            sp.plot(ys, label=key, color=colors[kk])
-        leg = sp.legend(loc="upper left",
-                        prop=font_manager.FontProperties(size=8))
+            sp2.plot(ys, label=key, color=colors[kk])
+        leg = sp2.legend(loc="best",
+                         prop=font_manager.FontProperties(size=8))
         leg.get_frame().set_alpha(0.5)
-        sp.set_ylabel("normalized y-value")
-        sp.axvline(ind, color="k")
-        sp.axvline(len(self.x_i)-2, ls=":", color="k")
-        sp.set_xlim(0, len(self.x_i)-1)
-        sp.set_xticklabels("")
-        sp = fig.add_subplot(413)
-        sp.plot(dgf_i, label="degrees of freedom")
-        sp.set_ylabel("dgf")
-        sp.axvline(len(self.x_i)-2, ls=":", color="k")
-        sp.axvline(ind, color="k")
-        sp.set_xlim(0, len(self.x_i)-1)
-        sp.set_xticklabels("")
-        sp = fig.add_subplot(414)
-        sp.plot(d_i2, label="d_i2")
-        sp.set_xlabel("iteration")
-        sp.set_ylabel("convergence criterion")
+        sp2.set_ylabel("y-values\n(normalized to measurement)")
+        sp2.axvline(ind, color="k")
+        sp2.axvline(len(self.x_i)-2, ls=":", color="k")
+
+        sp3.plot(dgf_i, label="degrees of freedom")
+        sp3.set_ylabel("degrees of freedom")
+        sp3.axvline(len(self.x_i)-2, ls=":", color="k")
+        sp3.axvline(ind, color="k")
+
+        sp4.plot(d_i2, label="d_i2")
+        sp4.set_xlabel("iteration")
+        sp4.set_ylabel("convergence criterion")
         fig.subplots_adjust(hspace=0.1)
-        sp.set_xlim(0, len(self.x_i)-1)
-        sp.axvline(len(self.x_i)-2, ls=":", color="k")
-        sp.axvline(ind, color="k")
-        xlabels = list(map(lambda x: "%i" % x, sp.get_xticks()))
-        xlabels[-1] = "truth"
-        sp.set_xticklabels(xlabels)
-        if fileName:
-            fig.savefig(fileName)
+        sp4.set_xlim(0, len(self.x_i)-1)
+        sp4.axvline(len(self.x_i)-2, ls=":", color="k")
+        sp4.axvline(ind, color="k")
+        sp4.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+        xlabels = list(map(lambda x: "%i" % x, sp4.get_xticks()))
+        xlabels[-1] = "truth/obs."
+        sp4.set_xticklabels(xlabels)
+
         return fig
 
     def summary(self, returnXarray=False):
@@ -669,26 +679,44 @@ class optimalEstimation(object):
             raise RuntimeError("Retrieval did not run successfully")
 
         summary = {}
-        summary['x_retrieved'] = self.x_i[self.convI].rename_axis('x_vars')
-        summary['y_retrieved'] = self.y_i[self.convI].rename_axis('y_vars')
-        if hasattr(self, 'x_truth'):
-            summary['x_truth'] = self.x_truth.rename_axis('x_vars')
-        summary['y_obs'] = self.y_obs.rename_axis('y_vars')
-        summary['x_err'] = np.sqrt(
+        summary['x_a'] = self.x_a.rename_axis('x_vars')
+        summary['S_a'] = self.S_a.rename_axis(
+            'x_vars').rename_axis('x_vars', 1)
+        summary['x_op'] = self.x_i[self.convI].rename_axis('x_vars')
+        summary['x_op_err'] = np.sqrt(
             pn.Series(np.diag(
                 self.S_aposterior_i[self.convI]), index=self.x_vars)
         ).rename_axis('x_vars')
-        summary['x_dgf'] = pn.Series(
+        summary['S_op'] = self.S_aposterior_i[self.convI].rename_axis(
+            'x_vars').rename_axis('x_vars', 1)
+        summary['dgf_x'] = pn.Series(
             np.diag(self.A_i[self.convI]), index=self.x_vars
         ).rename_axis('x_vars')
+
+        summary['y_obs'] = self.y_obs.rename_axis('y_vars')
+        summary['S_y'] = self.S_y.rename_axis(
+            'y_vars').rename_axis('y_vars', 1)
+
+        summary['y_op'] = self.y_i[self.convI].rename_axis('y_vars')
+        if self.x_truth is not None:
+            summary['x_truth'] = self.x_truth.rename_axis('x_vars')
+
+        if len(self.b_vars) > 0:
+            summary['b_p'] = self.b_p.rename_axis('b_vars')
+            summary['S_b'] = self.S_b.rename_axis(
+                'b_vars').rename_axis('b_vars', 1)
+
         if hasattr(self, 'nonlinearity'):
             summary['nonlinearity'] = self.nonlinearity
         if hasattr(self, 'trueNonlinearity'):
             summary['trueNonlinearity'] = self.trueNonlinearity
         if hasattr(self, 'chi2'):
             summary['chi2'] = self.chi2
+            summary['chi2Test'] = self.chi2Test
+            summary['chi2Passed'] = self.chi2Passed
+
         summary['dgf'] = self.dgf_i[self.convI]
-        summary['iter'] = self.convI
+        summary['convergedItration'] = self.convI
 
         if returnXarray:
             import xarray as xr
@@ -718,7 +746,7 @@ def optimalEstimation_loadResults(fname):
 
 def _oeDict2Object(oeDict):
     r'''
-    Helper function to convert a oe-dictionary (usually load from a file) to
+    Helper function to convert a oe-dictionary (usually loaded from a file) to
     a pyOptimalEstimation object
 
     Parameters
@@ -729,12 +757,17 @@ def _oeDict2Object(oeDict):
     Returns
     -------
     pyOptimalEstimation object
-      pyOptimalEstimation obtained from file.
+      pyOptimalEstimation object obtained from file.
     '''
-    oe = optimalEstimation(oeDict.pop("x_vars"), oeDict.pop("x_ap"),
-                           oeDict.pop("x_cov"), oeDict.pop(
-                               "y_vars"), oeDict.pop("y_cov"),
-                           oeDict.pop("y_obs"), None)
+    oe = optimalEstimation(
+        oeDict.pop("x_vars"),
+        oeDict.pop("x_a"),
+        oeDict.pop("S_a"),
+        oeDict.pop("y_vars"),
+        oeDict.pop("S_y"),
+        oeDict.pop("y_obs"),
+        None
+    )
     for kk in oeDict.keys():
         oe.__dict__[kk] = oeDict[kk]
     return oe
