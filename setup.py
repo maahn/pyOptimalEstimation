@@ -2,8 +2,9 @@
 '''
 pyOptimalEstimation
 
-Copyright (C) 2014-15 Maximilian Maahn, IGMK (mmaahn_(AT)_meteo.uni-koeln.de)
-http://gop.meteo.uni-koeln.de/software
+Copyright (C) 2014-19 Maximilian Maahn, CU Boulder
+maximilian.maahn@colorado.edu
+https://github.com/maahn/pyOptimalEstimation
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -29,23 +30,23 @@ with io.open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 if __name__ == "__main__":
-  setup(
-      name='pyOptimalEstimation',
-      version='0.2dev',
-      packages=['pyOptimalEstimation',],
-      license='GNU General Public License 3',
-      author="Maximilian Maahn",
-      author_email="maximilian.maahn@colorado.edu",
-      classifiers=[
-          "Development Status :: 4 - Beta",
-          "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-          "Operating System :: OS Independent",
-          "Programming Language :: Python :: 2.7",
-          "Programming Language :: Python :: 3",
-          'Intended Audience :: Science/Research',
-          'Topic :: Scientific/Engineering',
-          ],
-      install_requires = ['numpy', 'matplotlib', 'pandas' , 'scipy'],
-      long_description=long_description,
-      long_description_content_type='text/markdown'
-      )
+    setup(
+        name='pyOptimalEstimation',
+        version='0.2dev',
+        packages=['pyOptimalEstimation', ],
+        license='GNU General Public License 3',
+        author="Maximilian Maahn",
+        author_email="maximilian.maahn@colorado.edu",
+        classifiers=[
+            "Development Status :: 4 - Beta",
+            "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+            "Operating System :: OS Independent",
+            "Programming Language :: Python :: 2.7",
+            "Programming Language :: Python :: 3",
+            'Intended Audience :: Science/Research',
+            'Topic :: Scientific/Engineering',
+        ],
+        install_requires=['numpy', 'matplotlib', 'pandas', 'scipy'],
+        long_description=long_description,
+        long_description_content_type='text/markdown'
+    )
