@@ -6,7 +6,8 @@ python:
 before_install:
   - pip install setuptools --upgrade
   - pip install pip --upgrade
-  - pip install pytest>=3.6 coveralls pytest-cov
+  - pip install --upgrade pytest>=3.6
+  - pip install coveralls pytest-cov
 install:
   - pip install -r requirements.txt
   - pip install .
