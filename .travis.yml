@@ -1,0 +1,18 @@
+language: python
+python:
+  - "2.7"
+  - "3.6"
+  - "3.7"
+before_install:
+  - pip install setuptools --upgrade
+  - pip install pip --upgrade
+  - pip install pytest>=3.6 coveralls pytest-cov
+install:
+  - pip install -r requirements.txt
+  - pip install .
+script:
+  - which python
+  - python --version
+  - pytest --cov=pyOptimalEstimation
+after_success:
+- coveralls
