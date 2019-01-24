@@ -1,5 +1,7 @@
 [![Documentation Status](https://readthedocs.org/projects/pyoptimalestimation/badge/?version=latest)](https://pyoptimalestimation.readthedocs.io/en/latest/?badge=latest)
 
+[![Build Status](https://www.travis-ci.org/maahn/pyOptimalEstimation.svg?branch=master)](https://www.travis-ci.org/maahn/pyOptimalEstimation)
+
 # "pyOptimalEstimation" Package
 
 Python package to solve an inverse problem using Optimal Estimation
