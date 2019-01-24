@@ -5,3 +5,4 @@ dist
 docs/_build
 *~
 pyOptimalEstimation/examples/*.png
+.pytest_cache

@@ -61,7 +61,7 @@ class optimalEstimation(object):
         with xb = pd.concat((x,b)).
     x_truth : pd.Series or list or np.ndarray, optional
         If truth of state x is known, it can added to the data object. If
-        provided, the value will be used for the routines testLinearity and
+        provided, the value will be used for the routines linearityTest and
         plotIterations, but _not_ by the retrieval itself. Defaults to None/
     b_vars : list of str, optional
         names of the elements of parameter vector b. defaults to [].
@@ -494,7 +494,7 @@ class optimalEstimation(object):
             self.convI = -9999
         return self.converged
 
-    def testLinearity(self):
+    def linearityTest(self):
         """
         test whether the solution is moderately linear following chapter
         5.1 of Rodgers 2000.
