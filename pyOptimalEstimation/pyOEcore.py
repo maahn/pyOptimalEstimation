@@ -165,12 +165,12 @@ class optimalEstimation(object):
         for inVar in [x_a, S_a, S_y, y_obs]:
             assert not np.any(np.isnan(inVar))
 
-        self.x_vars = x_vars
+        self.x_vars = list(x_vars)
         self.x_a = pd.Series(x_a, index=self.x_vars)
         self.S_a = pd.DataFrame(
             S_a, index=self.x_vars, columns=self.x_vars)
         self.x_n = len(self.x_vars)
-        self.y_vars = y_vars
+        self.y_vars = list(y_vars)
         self.S_y = pd.DataFrame(
             S_y, index=self.y_vars, columns=self.y_vars)
         self.y_obs = pd.Series(y_obs, index=self.y_vars)
@@ -183,7 +183,7 @@ class optimalEstimation(object):
             self.forward_name = forward.__name__
         except AttributeError:
             self.forward_name = None
-        self.b_vars = b_vars
+        self.b_vars = list(b_vars)
         self.b_n = len(self.b_vars)
         self.b_p = pd.Series(b_p, index=self.b_vars)
         self.S_b = pd.DataFrame(
@@ -286,8 +286,8 @@ class optimalEstimation(object):
                     dist = xb[x_key] * (disturbances[x_key] - 1)
                 else:
                     dist = disturbances[x_key]
-                jacobian["disturbed "+x_key][y_key] = (
-                    self.y_disturbed[y_key]["disturbed "+x_key] - y[y_key]
+                jacobian["disturbed %s" % x_key][y_key] = (
+                    self.y_disturbed[y_key]["disturbed %s" % x_key] - y[y_key]
                 ) / dist
 
         jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
@@ -396,25 +396,25 @@ class optimalEstimation(object):
             # check whether i+1 is valid
             for jj, xKey in enumerate(self.x_vars):
                 if (xKey in self.x_lowerLimit.keys()) and (
-                        self.x_i[i+1][jj] < self.x_lowerLimit[xKey]):
+                        self.x_i[i+1].iloc[jj] < self.x_lowerLimit[xKey]):
                     print("#"*60)
                     print("reset due to x_lowerLimit: %s from %f to %f in "
                           "iteration %d" % (
-                              xKey, self.x_i[i+1][jj], self.x_a[jj], i))
-                    self.x_i[i+1][jj] = self.x_a[jj]
+                              xKey, self.x_i[i+1].iloc[jj], self.x_a.iloc[jj], i))
+                    self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
                 if (xKey in self.x_upperLimit.keys()) and (
-                        self.x_i[i+1][jj] > self.x_upperLimit[xKey]):
+                        self.x_i[i+1].iloc[jj] > self.x_upperLimit[xKey]):
                     print("#"*60)
                     print("reset due to x_upperLimit: %s from %f to %f in "
                           "iteration %d" % (
-                              xKey, self.x_i[i+1][jj], self.x_a[jj], i))
-                    self.x_i[i+1][jj] = self.x_a[jj]
-                if np.isnan(self.x_i[i+1][jj]):
+                              xKey, self.x_i[i+1].iloc[jj], self.x_a.iloc[jj], i))
+                    self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
+                if np.isnan(self.x_i[i+1].iloc[jj]):
                     print("#"*60)
                     print("reset due to nan: %s from %f to %f in iteration "
                           "%d" % (
-                              xKey, self.x_i[i+1][jj], self.x_a[jj], i))
-                    self.x_i[i+1][jj] = self.x_a[jj]
+                              xKey, self.x_i[i+1].iloc[jj], self.x_a.iloc[jj], i))
+                    self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
 
             # convergence criteria  eq 6
             self.d_i2[i] = (self.x_i[i] - self.x_i[i+1]).T.dot(_invertMatrix(
