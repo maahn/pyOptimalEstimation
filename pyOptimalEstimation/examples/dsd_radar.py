@@ -49,14 +49,14 @@ x_cov = np.array([[1, 0], [0, 10]])
 y_cov = np.array([[1]])
 
 # measured observation of Y
-y_obs = [10]
+y_obs = np.array([10])
 
 # additional data to forward function
 forwardKwArgs = {"D": np.logspace(-4, -2, 50)}
 
 # create optimal estimation object
 oe = pyOE.optimalEstimation(
-    x_vars, x_ap, x_cov, y_vars, y_cov, y_obs, forward,
+    x_vars, x_ap, x_cov, y_vars, y_obs, y_cov, forward,
     forwardKwArgs=forwardKwArgs
     )
 
