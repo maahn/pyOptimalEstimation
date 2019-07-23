@@ -81,10 +81,11 @@ class optimalEstimation(object):
         exceeded. defaults to {}.
     disturbance : float or dict of floats, optional
         relative disturbance of statet vector x to estimate the Jacobian. Can
-        be specified for every element of x seperately. Defaults to 1.01.
+        be specified for every element of x seperately. Defaults to 0.1 of
+        prior.
     useFactorInJac : bool,optional
         True if disturbance should be applied by multiplication, False if it
-        should by applied by additiion. Defaults to True.
+        should by applied by addition of fraction of prior. Defaults to False.
     gammaFactor : list of floats, optional
         Use additional gamma parameter for retrieval, see [1]_.
 
@@ -155,9 +156,9 @@ class optimalEstimation(object):
                  S_b=[[]],
                  x_lowerLimit={},
                  x_upperLimit={},
-                 useFactorInJac=True,
+                 useFactorInJac=False,
                  gammaFactor=None,
-                 disturbance=1.01,
+                 disturbance=0.1,
                  convergenceFactor=10,
                  forwardKwArgs={},
                  ):
@@ -169,6 +170,9 @@ class optimalEstimation(object):
         self.x_a = pd.Series(x_a, index=self.x_vars)
         self.S_a = pd.DataFrame(
             S_a, index=self.x_vars, columns=self.x_vars)
+        self.x_a_err = np.sqrt(
+            pd.Series(np.diag(self.S_a), index=self.x_vars)
+        )
         self.x_n = len(self.x_vars)
         self.y_vars = list(y_vars)
         self.S_y = pd.DataFrame(
@@ -185,10 +189,13 @@ class optimalEstimation(object):
             self.forward_name = None
         self.b_vars = list(b_vars)
         self.b_n = len(self.b_vars)
+        assert self.b_n == len(b_p)
         self.b_p = pd.Series(b_p, index=self.b_vars)
         self.S_b = pd.DataFrame(
             S_b, index=self.b_vars, columns=self.b_vars)
-
+        self.b_p_err = np.sqrt(
+            pd.Series(np.diag(self.S_b), index=self.b_vars)
+        )
         self.forwardKwArgs = forwardKwArgs
         self.x_lowerLimit = x_lowerLimit
         self.x_upperLimit = x_upperLimit
@@ -232,6 +239,7 @@ class optimalEstimation(object):
         '''
         xb_vars = self.x_vars + self.b_vars
         xb = pd.Series(xb, index=xb_vars, dtype=float)
+        xb_err = pd.concat((self.x_a_err, self.b_p_err))
 
         # If a factor is used to disturb xb, xb must not be zero.
         assert not (self.useFactorInJac and np.any(xb == 0))
@@ -260,7 +268,7 @@ class optimalEstimation(object):
                     disturbances[xb_key]
             else:
                 self.xb_disturbed[xb_key][disturbed_xb_key] = xb[xb_key] + \
-                    disturbances[xb_key]
+                    (disturbances[xb_key] * xb_err.loc[xb_key])
         self.y_disturbed = pd.DataFrame(
             columns=self.y_vars,
             index=disturbedKeys,
@@ -285,7 +293,7 @@ class optimalEstimation(object):
                 if self.useFactorInJac:
                     dist = xb[x_key] * (disturbances[x_key] - 1)
                 else:
-                    dist = disturbances[x_key]
+                    dist = disturbances[x_key] * xb_err.loc[x_key]
                 jacobian["disturbed %s" % x_key][y_key] = (
                     self.y_disturbed[y_key]["disturbed %s" % x_key] - y[y_key]
                 ) / dist
@@ -322,7 +330,7 @@ class optimalEstimation(object):
         startTime = time.time()
 
         S_a = np.array(self.S_a)  # Covariance of prior estimate of x
-        S_a_inv = _invertMatrix(S_a)  # S_a inverted
+        self.S_a_inv = _invertMatrix(S_a)  # S_a inverted
         self.K_i = [0]*maxIter  # list of jacobians
         self.K_b_i = [0]*maxIter  # list of jacobians for parameter vector
         self.x_i = [0]*(maxIter+1)
@@ -371,11 +379,13 @@ class optimalEstimation(object):
             K = np.array(self.K_i[i])
 
             # reformulated using Turner and Löhnert 2013:
-            B = (self.gam_i[i] * S_a_inv) + K.T.dot(S_Ep_inv.dot(K))  # eq 3
+            B = (self.gam_i[i] * self.S_a_inv) + \
+                K.T.dot(S_Ep_inv.dot(K))  # eq 3
             B_inv = _invertMatrix(B)
             self.S_aposterior_i[i] = B_inv.dot(
-                (self.gam_i[i]**2 * S_a_inv) + K.T.dot(S_Ep_inv.dot(K))
+                (self.gam_i[i]**2 * self.S_a_inv) + K.T.dot(S_Ep_inv.dot(K))
             ).dot(B_inv)  # eq2
+
             self.S_aposterior_i[i] = pd.DataFrame(
                 self.S_aposterior_i[i],
                 index=self.x_a.index,
@@ -384,10 +394,9 @@ class optimalEstimation(object):
             G = B_inv.dot(K.T.dot(S_Ep_inv))
             self.A_i[i] = G.dot(K)  # eq 4
             self.x_i[i+1] = self.x_a +\
-                _invertMatrix((self.gam_i[i] * S_a_inv) +
-                              K.T.dot(S_Ep_inv.dot(K))).dot(
+                B_inv.dot(
                 K.T.dot(S_Ep_inv.dot(self.y_obs - self.y_i[i] +
-                                     K.dot(self.x_i[i]-self.x_a))))  # eq 1
+                                     K.dot(self.x_i[i] - self.x_a))))  # eq 1
             self.dgf_i[i] = np.trace(self.A_i[i])
             # eq. 2.80 Rodgers
             self.H_i[i] = -0.5 * \
@@ -417,8 +426,9 @@ class optimalEstimation(object):
                     self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
 
             # convergence criteria  eq 6
-            self.d_i2[i] = (self.x_i[i] - self.x_i[i+1]).T.dot(_invertMatrix(
-                self.S_aposterior_i[i])).dot(self.x_i[i] - self.x_i[i+1])
+            dx = self.x_i[i] - self.x_i[i+1]
+            self.d_i2[i] = dx.T.dot(_invertMatrix(
+                self.S_aposterior_i[i])).dot(dx)
 
             # stop if we converged in the step before
             if self.converged:
@@ -710,7 +720,7 @@ class optimalEstimation(object):
 
         return fig
 
-    def summary(self, returnXarray=False):
+    def summary(self, returnXarray=False, combineXB=False):
         '''Provide a summary of the retrieval results as a dictionary.
 
         Parameters
@@ -718,6 +728,9 @@ class optimalEstimation(object):
         returnXarray : {bool}, optional
           return xarray dataset instead of dict. Can be easily combined when
           applying the retrieval multiple times. (the default is False)
+        combineXB : {bool}, optional
+          append b parameter values to state vector X variables. Can be useful
+          for comparing runs with and without b parameters.
 
         Returns
         -------
@@ -745,11 +758,6 @@ class optimalEstimation(object):
         if self.x_truth is not None:
             summary['x_truth'] = self.x_truth.rename_axis('x_vars')
 
-        if len(self.b_vars) > 0:
-            summary['b_p'] = self.b_p.rename_axis('b_vars')
-            summary['S_b'] = self.S_b.rename_axis(
-                'b_vars').rename_axis('b_vars_T', 1)
-
         if hasattr(self, 'nonlinearity'):
             summary['nonlinearity'] = self.nonlinearity
         if hasattr(self, 'trueNonlinearity'):
@@ -761,6 +769,32 @@ class optimalEstimation(object):
 
         summary['dgf'] = self.dgf_i[self.convI]
         summary['convergedIteration'] = self.convI
+
+        if (not combineXB) and (len(self.b_vars) > 0):
+            summary['b_p'] = self.b_p.rename_axis('b_vars')
+            summary['S_b'] = self.S_b.rename_axis(
+                'b_vars').rename_axis('b_vars_T', 1)
+            summary['b_p_err'] = self.b_p_err.rename_axis('b_vars')
+
+        elif combineXB and (len(self.b_vars) > 0):
+            summary['x_a'] = pd.concat(
+                (summary['x_a'], self.b_p)).rename_axis('x_vars')
+            summary['x_op'] = pd.concat(
+                (summary['x_op'], self.b_p)).rename_axis('x_vars')
+            summary['x_op_err'] = pd.concat(
+                (summary['x_op_err'], self.b_p_err)).rename_axis('x_vars')
+            summary['dgf_x'] = pd.concat(
+                (
+                    summary['dgf_x'],
+                    pd.Series(np.zeros(self.b_n), index=self.b_vars)
+                )
+            ).rename_axis('x_vars')
+            summary['S_a'] = pd.concat(
+                (summary['S_a'], self.S_b), sort=False
+            ).rename_axis('x_vars').rename_axis('x_vars_T', 1)
+            summary['S_op'] = pd.concat(
+                (summary['S_op'], self.S_b), sort=False
+            ).rename_axis('x_vars').rename_axis('x_vars_T', 1)
 
         if returnXarray:
             import xarray as xr
