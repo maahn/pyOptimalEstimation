@@ -744,15 +744,15 @@ class optimalEstimation(object):
         summary = {}
         summary['x_a'] = self.x_a.rename_axis('x_vars')
         summary['S_a'] = self.S_a.rename_axis(
-            'x_vars').rename_axis('x_vars_T', 1)
+            'x_vars').rename_axis('x_vars_T', axis=1)
         summary['x_op'] = self.x_op.rename_axis('x_vars')
         summary['x_op_err'] = self.x_op_err.rename_axis('x_vars')
         summary['S_op'] = self.S_op.rename_axis(
-            'x_vars').rename_axis('x_vars_T', 1)
+            'x_vars').rename_axis('x_vars_T', axis=1)
         summary['dgf_x'] = self.dgf_x.rename_axis('x_vars')
         summary['y_obs'] = self.y_obs.rename_axis('y_vars')
         summary['S_y'] = self.S_y.rename_axis(
-            'y_vars').rename_axis('y_vars_T', 1)
+            'y_vars').rename_axis('y_vars_T', axis=1)
 
         summary['y_op'] = self.y_op.rename_axis('y_vars')
         if self.x_truth is not None:
@@ -773,7 +773,7 @@ class optimalEstimation(object):
         if (not combineXB) and (len(self.b_vars) > 0):
             summary['b_p'] = self.b_p.rename_axis('b_vars')
             summary['S_b'] = self.S_b.rename_axis(
-                'b_vars').rename_axis('b_vars_T', 1)
+                'b_vars').rename_axis('b_vars_T', axis=1)
             summary['b_p_err'] = self.b_p_err.rename_axis('b_vars')
 
         elif combineXB and (len(self.b_vars) > 0):
@@ -791,10 +791,10 @@ class optimalEstimation(object):
             ).rename_axis('x_vars')
             summary['S_a'] = pd.concat(
                 (summary['S_a'], self.S_b), sort=False
-            ).rename_axis('x_vars').rename_axis('x_vars_T', 1)
+            ).rename_axis('x_vars').rename_axis('x_vars_T', axis=1)
             summary['S_op'] = pd.concat(
                 (summary['S_op'], self.S_b), sort=False
-            ).rename_axis('x_vars').rename_axis('x_vars_T', 1)
+            ).rename_axis('x_vars').rename_axis('x_vars_T', axis=1)
 
         if returnXarray:
             import xarray as xr
