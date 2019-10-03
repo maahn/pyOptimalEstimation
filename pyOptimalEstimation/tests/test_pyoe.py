@@ -77,8 +77,13 @@ class TestFullRetrieval(object):
                 oe.nonlinearity, np.array([0.01916289, 0.04508785, 0.02804108])
             )
         )
-        assert np.isclose(oe.chi2, 56.31308272127505)
-
+        assert np.all(
+          np.isclose(
+            oe.chi2Results['chi2value'] , 
+            np.array([67.748733, 41.148962, 2.908089, 0.176378])
+            )
+          )
+        
     def test_simple_withB(self):
         x_vars = ['N', 'R']
         b_vars = ['W']
@@ -144,7 +149,12 @@ class TestFullRetrieval(object):
             )
         )
         assert np.isclose(oe.dgf, 1.9612330067312422)
-        assert np.isclose(oe.chi2, 79.66710659064536)
+        assert np.all(
+          np.isclose(
+            oe.chi2Results['chi2value'] , 
+            np.array([47.36895951, 32.34974831,  0.21562209,  0.0769669 ])
+            )
+          )
         assert np.isclose(oe.trueNonlinearity,  0.04230584990874298)
         assert np.all(
             np.isclose(
