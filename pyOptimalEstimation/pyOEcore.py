@@ -163,6 +163,12 @@ class optimalEstimation(object):
                  forwardKwArgs={},
                  ):
 
+
+        #some initital tests
+        assert np.linalg.matrix_rank(S_a) ==  S_a.shape[-1] ,\
+            'S_a must not be singular'
+        assert np.linalg.matrix_rank(S_y) ==  S_y.shape[-1] ,\
+            'S_y must not be singular'
         for inVar in [x_a, S_a, S_y, y_obs]:
             assert not np.any(np.isnan(inVar))
 
@@ -220,6 +226,9 @@ class optimalEstimation(object):
         self.x_op_err = None
         self.dgf = None
         self.dgf_x = None
+        self._y_a = None
+
+        return
 
     def getJacobian(self, xb):
         r'''
@@ -294,6 +303,7 @@ class optimalEstimation(object):
                     dist = xb[x_key] * (disturbances[x_key] - 1)
                 else:
                     dist = disturbances[x_key] * xb_err.loc[x_key]
+                    assert dist != 0, 'S_a&s_b must not contain zeros on diagonal'
                 jacobian["disturbed %s" % x_key][y_key] = (
                     self.y_disturbed[y_key]["disturbed %s" % x_key] - y[y_key]
                 ) / dist
@@ -500,9 +510,35 @@ class optimalEstimation(object):
             self.dgf_x = pd.Series(
                 np.diag(self.A_i[i]), index=self.x_vars
             )
+            # S_Epsilon Covariance of measurement noise including parameter
+            # uncertainty (Rodgers, sec 3.4.3)
+            S_Ep_b = self.K_b_i[self.convI].values.dot(
+                    self.S_b.values).dot(self.K_b_i[self.convI].values.T)
+            self.S_Ep = pd.DataFrame(self.S_y.values + S_Ep_b, index=self.y_vars, columns=self.y_vars)
         else:
             self.convI = -9999
+            self.x_op= np.nan
+            self.y_op = np.nan
+            self.S_op = np.nan
+            self.x_op_err = np.nan
+            self.dgf = np.nan
+            self.dgf_x = np.nan
+            self.S_Ep = np.nan
+
         return self.converged
+
+
+    @property
+    def y_a(self):
+        '''
+        Estimate the observations corresponding to the prior.
+        '''
+        if self._y_a is None:
+            xb_a = pd.concat((self.x_a, self.b_p))
+            self._y_a = pd.Series(self.forward(xb_a, **self.forwardKwArgs),
+                index=self.y_vars)
+        return self._y_a
+
 
     def linearityTest(self):
         """
@@ -556,7 +592,54 @@ class optimalEstimation(object):
 
         return self.nonlinearity, self.trueNonlinearity
 
+
     def chiSquareTest(self, significance=0.05):
+        chi2names = pd.Index([
+            'Y_Optimal_vs_Observation',
+            'Y_Observation_vs_Prior',
+            'Y_Optimal_vs_Prior',
+            'X_Optimal_vs_Prior',
+        ], name = 'chi2test')
+
+        chi2Cols = [
+            'chi2value',
+            'chi2critical',
+            ]
+
+        if not self.converged:
+            print("did not converge")
+            pd.DataFrame(
+                np.zeros((4,2)),
+                index=chi2names,
+                columns=chi2Cols,
+                )*np.nan
+        else:
+            YOptimalObservation  = self.chiSquareTestYOptimalObservation(
+                significance=significance)
+            YObservationPrior  = self.chiSquareTestYObservationPrior(
+                significance=significance)
+            YOptimalPrior  = self.chiSquareTestYOptimalPrior(
+                significance=significance)
+            XOptimalPrior  = self.chiSquareTestXOptimalPrior(
+                significance=significance)
+
+            self.chi2Results = pd.DataFrame(
+                np.array([
+                    YOptimalObservation,
+                    YObservationPrior,
+                    YOptimalPrior,
+                    XOptimalPrior,
+                    ]),
+                index=chi2names,
+                columns=chi2Cols,
+                )
+
+        passed = self.chi2Results['chi2value'] < self.chi2Results['chi2critical']
+
+        return passed, self.chi2Results['chi2value'], self.chi2Results['chi2critical']
+
+
+    def chiSquareTestYOptimalObservation(self, significance=0.05):
         """
         test with significance level 'significance' whether retrieval agrees
         with measurements (see chapter 12.3.2 of Rodgers, 2000)
@@ -569,35 +652,146 @@ class optimalEstimation(object):
 
         Returns
         -------
-        self.chi2Passed : bool
+        chi2Passed : bool
           True if chi² test passed, i.e. OE  retrieval agrees with
           measurements and null hypothesis is NOT rejected.
-        self.chi2 : real
+        chi2 : real
           chi² value
-        self.chi2Test : real
+        chi2TestY : real
           chi²  cutoff value with significance 'significance'
 
         """
-        self.chi2Passed = False
-        self.chi2 = np.nan
-        self.chi2Test = np.nan
+        assert self.converged
 
-        if not self.converged:
-            print("did not converge")
-            return self.chi2Passed, self.chi2, self.chi2Test
+        Sa = self.S_a.values
+        Sep = self.S_Ep.values
+        K = self.K_i[self.convI].values
 
         # Rodgers eq. 12.9
-        S_deyd = self.S_y.values.dot(_invertMatrix(self.K_i[self.convI
-                                                            ].values.dot(
-            self.S_a.values.dot(self.K_i[self.convI].values.T)) + self.S_y
-        )).dot(self.S_y.values)
+        KSaKSep_inv = _invertMatrix(K.dot(Sa).dot(K.T) + Sep)
+        S_deyd = Sep.dot(KSaKSep_inv).dot(Sep)
         delta_y = self.y_i[self.convI] - self.y_obs
-        self.chi2 = delta_y.T.dot(_invertMatrix(S_deyd)).dot(delta_y)
-        self.chi2Test = scipy.stats.chi2.isf(significance, self.y_n)
 
-        self.chi2Passed = self.chi2 <= self.chi2Test
+        chi2, chi2TestY = _testChi2(S_deyd, delta_y, significance)
 
-        return self.chi2Passed, self.chi2, self.chi2Test
+        return chi2, chi2TestY
+
+    def chiSquareTestYObservationPrior(self, significance=0.05):
+        """
+        test with significance level 'significance' whether measurement agrees
+        with prior (see chapter 12.3.3.1 of Rodgers, 2000)
+
+        Parameters
+        ----------
+        significance  : real, optional
+          significance level, defaults to 0.05, i.e. probability is 5% that
+           correct null hypothesis is rejected.
+
+        Returns
+        -------
+        YObservationPrior : bool
+          True if chi² test passed, i.e. OE  retrieval agrees with
+          measurements and null hypothesis is NOT rejected.
+        YObservationPrior: real
+          chi² value
+        chi2TestY : real
+          chi²  cutoff value with significance 'significance'
+
+        """
+
+        assert self.converged
+
+        delta_y = self.y_obs - self.y_a
+        Sa = self.S_a.values
+        Sep = self.S_Ep.values
+        K = self.K_i[self.convI].values
+        KSaKSep = K.dot(Sa).dot(K.T) + Sep
+
+        chi2, chi2TestY = _testChi2(KSaKSep, delta_y, significance)
+
+        return chi2, chi2TestY
+
+
+
+    def chiSquareTestYOptimalPrior(self, significance=0.05):
+        """
+        test with significance level 'significance' whether retrieval result agrees
+        with prior in y space (see chapter 12.3.3.3 of Rodgers, 2000)
+
+        Parameters
+        ----------
+        significance  : real, optional
+          significance level, defaults to 0.05, i.e. probability is 5% that
+           correct null hypothesis is rejected.
+
+        Returns
+        -------
+        chi2Passe : bool
+          True if chi² test passed, i.e. OE  retrieval agrees with
+          Prior and null hypothesis is NOT rejected.
+        chi2: real
+          chi² value
+        chi2TestY : real
+          chi²  cutoff value with significance 'significance'
+
+        """
+
+        assert self.converged
+
+
+        delta_y = self.y_i[self.convI] - self.y_a
+        Sa = self.S_a.values
+        S_ep = self.S_Ep.values
+        K = self.K_i[self.convI].values
+
+        #Rodgers eq.12.16
+        KSaK = K.dot(Sa).dot(K.T)
+        KSaKSep_inv = _invertMatrix(KSaK + S_ep)
+        Syd = KSaK.dot(KSaKSep_inv).dot(KSaK)
+
+        chi, chi2TestY  = _testChi2(Syd, delta_y, significance)
+
+        return chi, chi2TestY
+
+
+    def chiSquareTestXOptimalPrior(self, significance=0.05):
+        """
+        test with significance level 'significance' whether retrieval agrees
+        with prior in x space (see chapter 12.3.3.3 of Rodgers, 2000)
+
+        Parameters
+        ----------
+        significance  : real, optional
+          significance level, defaults to 0.05, i.e. probability is 5% that
+           correct null hypothesis is rejected.
+
+        Returns
+        -------
+        chi2Passed : bool
+          True if chi² test passed, i.e. OE  retrieval agrees with
+          Prior and null hypothesis is NOT rejected.
+        chi2 : real
+          chi² value
+        chi2TestX : real
+          chi² cutoff value with significance 'significance'
+        """
+
+        assert self.converged
+
+        delta_x = self.x_op - self.x_a
+
+        Sa = self.S_a.values
+        K = self.K_i[self.convI].values
+
+        # Rodgers eq. 12.12
+        KSaKSep_inv = _invertMatrix(K.dot(Sa).dot(K.T) + self.S_y)
+        Sxd = Sa.dot(K.T).dot(KSaKSep_inv).dot(K).dot(Sa)
+        chi2, chi2TestX = _testChi2(Sxd, delta_x, significance)
+
+
+        return chi2, chi2TestX
+
+
 
     def saveResults(self, fname):
         r'''
@@ -762,10 +956,9 @@ class optimalEstimation(object):
             summary['nonlinearity'] = self.nonlinearity
         if hasattr(self, 'trueNonlinearity'):
             summary['trueNonlinearity'] = self.trueNonlinearity
-        if hasattr(self, 'chi2'):
-            summary['chi2'] = self.chi2
-            summary['chi2Test'] = self.chi2Test
-            summary['chi2Passed'] = self.chi2Passed
+        if hasattr(self, 'chi2Results'):
+            summary['chi2value'] = self.chi2Results['chi2value']
+            summary['chi2critical'] = self.chi2Results['chi2critical']
 
         summary['dgf'] = self.dgf_i[self.convI]
         summary['convergedIteration'] = self.convI
@@ -874,14 +1067,87 @@ def _niceColors(length, cmap='hsv'):
     return colors
 
 
-def _invertMatrix(A):
+def _invertMatrix(A, raise_error = True):
     '''
     Wrapper funtion for np.linalg.inv, because original function reports
     LinAlgError if nan in array for some numpy versions. We want that the
-    retrieval is robust with respect to that
+    retrieval is robust with respect to that. Also, checks for singular 
+    matrices were added.
     '''
+    A = np.asarray(A)
+
     if np.any(np.isnan(A)):
         warnings.warn("Found nan in Matrix during inversion", UserWarning)
         return np.zeros_like(A) * np.nan
+    elif np.linalg.cond(A) > 1/np.finfo(A.dtype).eps:
+        if raise_error:
+            raise ValueError("Found singular matrix", UserWarning)
+        else:
+            warnings.warn("Found singular matrix", UserWarning)
+            return np.zeros_like(A) * np.nan
     else:
         return np.linalg.inv(A)
+
+
+def _estimateChi2(S,z):
+    '''Estimate Chi^2 to estimate whether z is from distribution with covariance S
+    
+    Parameters
+    ----------
+    S : {array}
+        Covariance matrix
+    z : {array}
+        Vector to test
+    
+    Returns
+    -------
+    float
+        Estimated chi2 value
+    '''
+    
+    eigVals, eigVecsL = scipy.linalg.eig(S, left=True, right=False)
+    z_prime = eigVecsL.T.dot(z)
+    
+    #Handle singular matrices. See Rodgers ch 12.2
+    notNull = ~np.isclose(eigVals,0)
+    dofs = np.sum(notNull)
+    if dofs != len(notNull):
+        print('Warning. Singular Matrix with rank %i instead of %i'%(dofs,len(notNull)))
+        
+    #Rodgers eq. 12.1
+    chi2s= z_prime[notNull]**2/eigVals[notNull]
+    return chi2s.real, dofs
+
+def _testChi2(S, z, significance):
+    '''Test whether z is from distribution with covariance S with significance
+    
+    Parameters
+    ----------
+    S : {array}
+        Covariance matrix
+    z : {array}
+        Vector to test
+    significance : {float}
+        Significane level
+    
+    Returns
+    -------
+    float
+        Estimated chi2 value
+    float
+        Theoretical chi2 value for significance
+    bool
+        True if Chi^2 test passed
+
+    '''
+    chi2s_obs, dof = _estimateChi2(S,z)
+    chi2_obs = np.sum(chi2s_obs)
+    chi2_theo = scipy.stats.chi2.isf(significance, dof)
+    # chi2_theo1 = scipy.stats.chi2.isf(significance, 1)
+
+    # print(chi2_obs<= chi2_theo, np.all(chi2s_obs<= chi2_theo1))
+
+    return chi2_obs, chi2_theo
+
+
+
