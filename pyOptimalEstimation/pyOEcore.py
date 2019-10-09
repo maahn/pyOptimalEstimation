@@ -914,7 +914,11 @@ class optimalEstimation(object):
 
         return fig
 
-    def summary(self, returnXarray=False, combineXB=False):
+    def summary(self, *args, **kwargs):
+        DeprecationWarning('Use summarize instead of summary!')
+        return self.summarize(self, *args, **kwargs)
+
+    def summarize(self, returnXarray=False, combineXB=False):
         '''Provide a summary of the retrieval results as a dictionary.
 
         Parameters
@@ -937,6 +941,7 @@ class optimalEstimation(object):
 
         summary = {}
         summary['x_a'] = self.x_a.rename_axis('x_vars')
+        summary['x_a_err'] = self.x_a_err.rename_axis('x_vars')
         summary['S_a'] = self.S_a.rename_axis(
             'x_vars').rename_axis('x_vars_T', axis=1)
         summary['x_op'] = self.x_op.rename_axis('x_vars')
