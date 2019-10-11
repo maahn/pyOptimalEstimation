@@ -303,7 +303,7 @@ class optimalEstimation(object):
                     dist = xb[x_key] * (disturbances[x_key] - 1)
                 else:
                     dist = disturbances[x_key] * xb_err.loc[x_key]
-                    assert dist != 0, 'S_a&s_b must not contain zeros on '
+                    assert dist != 0, 'S_a&s_b must not contain zeros on '\
                         'diagonal'
                 jacobian["disturbed %s" % x_key][y_key] = (
                     self.y_disturbed[y_key]["disturbed %s" % x_key] - y[y_key]
@@ -420,29 +420,29 @@ class optimalEstimation(object):
                     print("#"*60)
                     print("reset due to x_lowerLimit: %s from %f to %f in "
                           "iteration %d" % (
-                              xKey, 
-                              self.x_i[i+1].iloc[jj], 
+                              xKey,
+                              self.x_i[i+1].iloc[jj],
                               self.x_a.iloc[jj], i
-                              ))
+                          ))
                     self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
                 if (xKey in self.x_upperLimit.keys()) and (
                         self.x_i[i+1].iloc[jj] > self.x_upperLimit[xKey]):
                     print("#"*60)
                     print("reset due to x_upperLimit: %s from %f to %f in "
                           "iteration %d" % (
-                              xKey, 
-                              self.x_i[i+1].iloc[jj], 
+                              xKey,
+                              self.x_i[i+1].iloc[jj],
                               self.x_a.iloc[jj], i
-                              ))
+                          ))
                     self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
                 if np.isnan(self.x_i[i+1].iloc[jj]):
                     print("#"*60)
                     print("reset due to nan: %s from %f to %f in iteration "
                           "%d" % (
-                              xKey, 
-                              self.x_i[i+1].iloc[jj], 
+                              xKey,
+                              self.x_i[i+1].iloc[jj],
                               self.x_a.iloc[jj], i
-                              ))
+                          ))
                     self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
 
             # convergence criteria  eq 6
@@ -525,10 +525,10 @@ class optimalEstimation(object):
             S_Ep_b = self.K_b_i[self.convI].values.dot(
                 self.S_b.values).dot(self.K_b_i[self.convI].values.T)
             self.S_Ep = pd.DataFrame(
-                self.S_y.values + S_Ep_b, 
-                index=self.y_vars, 
+                self.S_y.values + S_Ep_b,
+                index=self.y_vars,
                 columns=self.y_vars
-                )
+            )
         else:
             self.convI = -9999
             self.x_op = np.nan
@@ -557,7 +557,7 @@ class optimalEstimation(object):
         maxErrorPatterns=10,
         significance=0.05,
         atol=1e-5
-        ):
+    ):
         """
         test whether the solution is moderately linear following chapter
         5.1 of Rodgers 2000.
@@ -1268,7 +1268,7 @@ def _estimateChi2(S, z, atol=1e-5):
 
     # Rodgers eq. 12.1
     chi2s = z_prime[notNull]**2/eigVals[notNull]
-    return np.real_if_close(chi2s), dofs
+    return chi2s, dofs
 
 
 def _testChi2(S, z, significance, atol=1e-5):
@@ -1286,7 +1286,7 @@ def _testChi2(S, z, significance, atol=1e-5):
             The absolute tolerance for comparing eigen values to zero. We 
             found that values should be than the numpy.isclose defualt value 
             of 1e-8.
-            
+
     Returns
     -------
     float
@@ -1298,7 +1298,7 @@ def _testChi2(S, z, significance, atol=1e-5):
 
     '''
     chi2s_obs, dof = _estimateChi2(S, z, atol=atol)
-    chi2_obs = np.sum(chi2s_obs)
+    chi2_obs = np.real_if_close(np.sum(chi2s_obs))
     chi2_theo = scipy.stats.chi2.isf(significance, dof)
     # chi2_theo1 = scipy.stats.chi2.isf(significance, 1)
 
