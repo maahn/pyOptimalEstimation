@@ -55,7 +55,8 @@ class TestFullRetrieval(object):
         assert np.all(
             np.isclose(
                 oe.y_op.values,
-                np.array([3.17145649e-06, 1.10062999e-05, 3.65341959e-05, 1.15993429e-04,
+                np.array([
+       3.17145649e-06, 1.10062999e-05, 3.65341959e-05, 1.15993429e-04,
        3.52243388e-04, 1.02312321e-03, 2.84242260e-03, 7.55309564e-03,
        1.91971583e-02, 4.66685743e-02, 1.08514493e-01, 2.41338486e-01,
        5.13382485e-01, 1.04455458e+00, 2.03281029e+00, 3.78388728e+00,
@@ -67,14 +68,19 @@ class TestFullRetrieval(object):
        6.03497901e+01, 4.22066478e+01, 2.82332960e+01, 1.80641665e+01,
        1.10547748e+01, 6.47079287e+00, 3.62276965e+00, 1.93999035e+00,
        9.93651387e-01, 4.86792795e-01, 2.28102406e-01, 1.02233026e-01,
-       4.38256322e-02, 1.79696985e-02])
+       4.38256322e-02, 1.79696985e-02
+       ])
             )
         )
         assert np.isclose(oe.dgf, (2.6733916350055233))
-        assert np.isclose(oe.trueNonlinearity,  1.1025635773075495)
+        assert np.isclose(oe.trueLinearity,  1.1025635773075495)
         assert np.all(
             np.isclose(
-                oe.nonlinearity, np.array([0.01916289, 0.04508785, 0.02804108])
+                oe.linearity, np.array([
+                  0.04508784837582387, 
+                  0.02804107536933482, 
+                  0.0191628880252254
+                  ])
             )
         )
         assert np.all(
@@ -151,13 +157,13 @@ class TestFullRetrieval(object):
         assert np.isclose(oe.dgf, 1.9612330067312422)
         assert np.all(
           np.isclose(
-            oe.chi2Results['chi2value'] , 
-            np.array([47.36895951, 32.34974831,  0.21562209,  0.0769669 ])
+            oe.chi2Results['chi2value'].values , 
+            np.array([47.36895951, 32.34974831,  0.21562209,  0.07752859])
             )
           )
-        assert np.isclose(oe.trueNonlinearity,  0.04230584990874298)
+        assert np.isclose(oe.trueLinearity,  0.04230584990874298)
         assert np.all(
             np.isclose(
-                oe.nonlinearity, np.array([0.0065951 , 0.02921416])
+                oe.linearity, np.array([0.029214156840052827, 0.0065951044149309464])
             )
         )
