@@ -30,6 +30,7 @@ from copy import deepcopy
 import warnings
 
 import numpy as np
+import scipy
 import scipy.stats
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager
@@ -163,11 +164,10 @@ class optimalEstimation(object):
                  forwardKwArgs={},
                  ):
 
-
-        #some initital tests
-        assert np.linalg.matrix_rank(S_a) ==  S_a.shape[-1] ,\
+        # some initital tests
+        assert np.linalg.matrix_rank(S_a) == S_a.shape[-1],\
             'S_a must not be singular'
-        assert np.linalg.matrix_rank(S_y) ==  S_y.shape[-1] ,\
+        assert np.linalg.matrix_rank(S_y) == S_y.shape[-1],\
             'S_y must not be singular'
         for inVar in [x_a, S_a, S_y, y_obs]:
             assert not np.any(np.isnan(inVar))
@@ -303,7 +303,8 @@ class optimalEstimation(object):
                     dist = xb[x_key] * (disturbances[x_key] - 1)
                 else:
                     dist = disturbances[x_key] * xb_err.loc[x_key]
-                    assert dist != 0, 'S_a&s_b must not contain zeros on diagonal'
+                    assert dist != 0, 'S_a&s_b must not contain zeros on '
+                        'diagonal'
                 jacobian["disturbed %s" % x_key][y_key] = (
                     self.y_disturbed[y_key]["disturbed %s" % x_key] - y[y_key]
                 ) / dist
@@ -419,20 +420,29 @@ class optimalEstimation(object):
                     print("#"*60)
                     print("reset due to x_lowerLimit: %s from %f to %f in "
                           "iteration %d" % (
-                              xKey, self.x_i[i+1].iloc[jj], self.x_a.iloc[jj], i))
+                              xKey, 
+                              self.x_i[i+1].iloc[jj], 
+                              self.x_a.iloc[jj], i
+                              ))
                     self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
                 if (xKey in self.x_upperLimit.keys()) and (
                         self.x_i[i+1].iloc[jj] > self.x_upperLimit[xKey]):
                     print("#"*60)
                     print("reset due to x_upperLimit: %s from %f to %f in "
                           "iteration %d" % (
-                              xKey, self.x_i[i+1].iloc[jj], self.x_a.iloc[jj], i))
+                              xKey, 
+                              self.x_i[i+1].iloc[jj], 
+                              self.x_a.iloc[jj], i
+                              ))
                     self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
                 if np.isnan(self.x_i[i+1].iloc[jj]):
                     print("#"*60)
                     print("reset due to nan: %s from %f to %f in iteration "
                           "%d" % (
-                              xKey, self.x_i[i+1].iloc[jj], self.x_a.iloc[jj], i))
+                              xKey, 
+                              self.x_i[i+1].iloc[jj], 
+                              self.x_a.iloc[jj], i
+                              ))
                     self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
 
             # convergence criteria  eq 6
@@ -513,11 +523,15 @@ class optimalEstimation(object):
             # S_Epsilon Covariance of measurement noise including parameter
             # uncertainty (Rodgers, sec 3.4.3)
             S_Ep_b = self.K_b_i[self.convI].values.dot(
-                    self.S_b.values).dot(self.K_b_i[self.convI].values.T)
-            self.S_Ep = pd.DataFrame(self.S_y.values + S_Ep_b, index=self.y_vars, columns=self.y_vars)
+                self.S_b.values).dot(self.K_b_i[self.convI].values.T)
+            self.S_Ep = pd.DataFrame(
+                self.S_y.values + S_Ep_b, 
+                index=self.y_vars, 
+                columns=self.y_vars
+                )
         else:
             self.convI = -9999
-            self.x_op= np.nan
+            self.x_op = np.nan
             self.y_op = np.nan
             self.S_op = np.nan
             self.x_op_err = np.nan
@@ -527,7 +541,6 @@ class optimalEstimation(object):
 
         return self.converged
 
-
     @property
     def y_a(self):
         '''
@@ -536,35 +549,55 @@ class optimalEstimation(object):
         if self._y_a is None:
             xb_a = pd.concat((self.x_a, self.b_p))
             self._y_a = pd.Series(self.forward(xb_a, **self.forwardKwArgs),
-                index=self.y_vars)
+                                  index=self.y_vars)
         return self._y_a
 
-
-    def linearityTest(self):
+    def linearityTest(
+        self,
+        maxErrorPatterns=10,
+        significance=0.05,
+        atol=1e-5
+        ):
         """
         test whether the solution is moderately linear following chapter
         5.1 of Rodgers 2000.
         values lower than 1 indicate that the effect of linearization is
         smaller than the measurement error and problem is nearly linear.
-        Populates self.nonlinearity.
+        Populates self.linearity.
 
         Parameters
         ----------
+        maxErrorPatterns  : int, optional
+          maximum number of error patterns to return. Provide None to return
+        all.
+        significance  : real, optional
+          significance level, defaults to 0.05, i.e. probability is 5% that
+           correct null hypothesis is rejected. Only used when testing 
+           against x_truth.
+        atol : float (default 1e-5)
+            The absolute tolerance for comparing eigen values to zero. We 
+            found that values should be than the numpy.isclose defualt value 
+            of 1e-8.
 
         Returns
         -------
-        self.nonlinearity: float
-          ratio of error due to linearization to measurement error. Should be
-          below 1.
-        self.trueNonlinearity: float
-          As self.nonlinearity, but based on the true atmospheric state
-          'self.x_truth'.
+        self.linearity: float
+          ratio of error due to linearization to measurement error sorted by 
+          size. Should be below 1 for all.
+        self.trueLinearityChi2: float
+           Chi2 value that model is moderately linear based on 'self.x_truth'.
+           Must be smaller than critical value to conclude thast model is
+           linear.
+        self.trueLinearityChi2Critical: float
+           Corresponding critical Chi2 value. 
         """
-        self.nonlinearity = np.zeros(self.x_n)*np.nan
-        self.trueNonlinearity = np.nan
+        self.linearity = np.zeros(self.x_n)*np.nan
+        self.trueLinearityChi2 = np.nan
+        self.trueLinearityChi2Critical = np.nan
+
         if not self.converged:
             print("did not converge")
-            return self.nonlinearity, self.trueNonlinearity
+            return self.linearity, self.trueLinearity
         lamb, II = np.linalg.eig(self.S_aposterior_i[self.convI])
         S_Ep_inv = _invertMatrix(np.array(self.S_y))
         lamb[np.isclose(lamb, 0)] = 0
@@ -572,7 +605,7 @@ class optimalEstimation(object):
             print(
                 "found negative eigenvalues of S_aposterior_i, S_aposterior_i"
                 " not semipositive definite!")
-            return self.nonlinearity, self.trueNonlinearity
+            return self.linearity, self.trueLinearity
         error_pattern = lamb**0.5 * II
         for hh in range(self.x_n):
             x_hat = self.x_i[self.convI] + \
@@ -581,46 +614,76 @@ class optimalEstimation(object):
             y_hat = self.forward(xb_hat, **self.forwardKwArgs)
             del_y = (y_hat - self.y_i[self.convI] - self.K_i[self.convI].dot(
                 (x_hat - self.x_i[self.convI]).values))
-            self.nonlinearity[hh] = del_y.T.dot(S_Ep_inv).dot(del_y)
+            self.linearity[hh] = del_y.T.dot(S_Ep_inv).dot(del_y)
+
+        self.linearity = sorted(
+            self.linearity, reverse=True)[slice(None, maxErrorPatterns)]
 
         if self.x_truth is not None:
             xb_truth = pd.concat((self.x_truth, self.b_p))
             y_truth = self.forward(xb_truth, **self.forwardKwArgs)
             del_y = (y_truth - self.y_i[self.convI] - self.K_i[self.convI].dot(
                 (self.x_truth - self.x_i[self.convI]).values))
-            self.trueNonlinearity = del_y.T.dot(S_Ep_inv).dot(del_y)
+            self.trueLinearity = del_y.T.dot(S_Ep_inv).dot(del_y)
 
-        return self.nonlinearity, self.trueNonlinearity
+            res = _testChi2(self.S_y.values, del_y, significance, atol)
+            self.trueLinearityChi2, self.trueLinearityChi2Critical = res
 
+        return self.linearity, self.trueLinearityChi2, \
+            self.trueLinearityChi2Critical
 
     def chiSquareTest(self, significance=0.05):
+        '''
+
+        test with significance level 'significance' whether 
+        A) optimal solution agrees with observation in Y space
+        B) observation agrees with prior in Y space
+        C) optimal solution agrees with prior in Y space
+        D) optimal solution agrees with priot in X space
+
+        Parameters
+        ----------
+        significance  : real, optional
+          significance level, defaults to 0.05, i.e. probability is 5% that
+           correct null hypothesis is rejected.
+
+        Returns
+        -------
+        Pandas Series (dtype bool):
+            True if test is passed
+        Pandas Series (dtype float):
+            Chi2 value for tests. Must be smaler than critical value to pass
+            tests.
+        Pandas Series (dtype float):
+            Critical Chi2 value for tests
+        '''
         chi2names = pd.Index([
             'Y_Optimal_vs_Observation',
             'Y_Observation_vs_Prior',
             'Y_Optimal_vs_Prior',
             'X_Optimal_vs_Prior',
-        ], name = 'chi2test')
+        ], name='chi2test')
 
         chi2Cols = [
             'chi2value',
             'chi2critical',
-            ]
+        ]
 
         if not self.converged:
             print("did not converge")
             pd.DataFrame(
-                np.zeros((4,2)),
+                np.zeros((4, 2)),
                 index=chi2names,
                 columns=chi2Cols,
-                )*np.nan
+            )*np.nan
         else:
-            YOptimalObservation  = self.chiSquareTestYOptimalObservation(
+            YOptimalObservation = self.chiSquareTestYOptimalObservation(
                 significance=significance)
-            YObservationPrior  = self.chiSquareTestYObservationPrior(
+            YObservationPrior = self.chiSquareTestYObservationPrior(
                 significance=significance)
-            YOptimalPrior  = self.chiSquareTestYOptimalPrior(
+            YOptimalPrior = self.chiSquareTestYOptimalPrior(
                 significance=significance)
-            XOptimalPrior  = self.chiSquareTestXOptimalPrior(
+            XOptimalPrior = self.chiSquareTestXOptimalPrior(
                 significance=significance)
 
             self.chi2Results = pd.DataFrame(
@@ -629,17 +692,18 @@ class optimalEstimation(object):
                     YObservationPrior,
                     YOptimalPrior,
                     XOptimalPrior,
-                    ]),
+                ]),
                 index=chi2names,
                 columns=chi2Cols,
-                )
+            )
 
-        passed = self.chi2Results['chi2value'] < self.chi2Results['chi2critical']
+        passed = self.chi2Results['chi2value'] < self.\
+            chi2Results['chi2critical']
 
-        return passed, self.chi2Results['chi2value'], self.chi2Results['chi2critical']
+        return passed, self.chi2Results['chi2value'], \
+            self.chi2Results['chi2critical']
 
-
-    def chiSquareTestYOptimalObservation(self, significance=0.05):
+    def chiSquareTestYOptimalObservation(self, significance=0.05, atol=1e-5):
         """
         test with significance level 'significance' whether retrieval agrees
         with measurements (see chapter 12.3.2 of Rodgers, 2000)
@@ -649,7 +713,10 @@ class optimalEstimation(object):
         significance  : real, optional
           significance level, defaults to 0.05, i.e. probability is 5% that
            correct null hypothesis is rejected.
-
+        atol : float (default 1e-5)
+            The absolute tolerance for comparing eigen values to zero. We 
+            found that values should be than the numpy.isclose defualt value 
+            of 1e-8.
         Returns
         -------
         chi2Passed : bool
@@ -672,11 +739,11 @@ class optimalEstimation(object):
         S_deyd = Sep.dot(KSaKSep_inv).dot(Sep)
         delta_y = self.y_i[self.convI] - self.y_obs
 
-        chi2, chi2TestY = _testChi2(S_deyd, delta_y, significance)
+        chi2, chi2TestY = _testChi2(S_deyd, delta_y, significance, atol)
 
         return chi2, chi2TestY
 
-    def chiSquareTestYObservationPrior(self, significance=0.05):
+    def chiSquareTestYObservationPrior(self, significance=0.05, atol=1e-5):
         """
         test with significance level 'significance' whether measurement agrees
         with prior (see chapter 12.3.3.1 of Rodgers, 2000)
@@ -686,7 +753,10 @@ class optimalEstimation(object):
         significance  : real, optional
           significance level, defaults to 0.05, i.e. probability is 5% that
            correct null hypothesis is rejected.
-
+        atol : float (default 1e-5)
+            The absolute tolerance for comparing eigen values to zero. We 
+            found that values should be than the numpy.isclose defualt value 
+            of 1e-8.
         Returns
         -------
         YObservationPrior : bool
@@ -707,13 +777,11 @@ class optimalEstimation(object):
         K = self.K_i[self.convI].values
         KSaKSep = K.dot(Sa).dot(K.T) + Sep
 
-        chi2, chi2TestY = _testChi2(KSaKSep, delta_y, significance)
+        chi2, chi2TestY = _testChi2(KSaKSep, delta_y, significance, atol)
 
         return chi2, chi2TestY
 
-
-
-    def chiSquareTestYOptimalPrior(self, significance=0.05):
+    def chiSquareTestYOptimalPrior(self, significance=0.05, atol=1e-5):
         """
         test with significance level 'significance' whether retrieval result agrees
         with prior in y space (see chapter 12.3.3.3 of Rodgers, 2000)
@@ -723,6 +791,10 @@ class optimalEstimation(object):
         significance  : real, optional
           significance level, defaults to 0.05, i.e. probability is 5% that
            correct null hypothesis is rejected.
+        atol : float (default 1e-5)
+            The absolute tolerance for comparing eigen values to zero. We 
+            found that values should be than the numpy.isclose defualt value 
+            of 1e-8.
 
         Returns
         -------
@@ -738,23 +810,55 @@ class optimalEstimation(object):
 
         assert self.converged
 
-
         delta_y = self.y_i[self.convI] - self.y_a
         Sa = self.S_a.values
         S_ep = self.S_Ep.values
         K = self.K_i[self.convI].values
 
-        #Rodgers eq.12.16
+        # Rodgers eq.12.16
         KSaK = K.dot(Sa).dot(K.T)
         KSaKSep_inv = _invertMatrix(KSaK + S_ep)
         Syd = KSaK.dot(KSaKSep_inv).dot(KSaK)
 
-        chi, chi2TestY  = _testChi2(Syd, delta_y, significance)
+        chi, chi2TestY = _testChi2(Syd, delta_y, significance, atol)
+
+        #######  Alternative based on execise Rodgers 12.1 #######
+
+        # Se = y_cov.values
+        # K = self.K_i[self.convI].values
+        # Sa = x_cov.sel(season=season).to_pandas().loc[x_vars,x_vars].values
+        # d_y = (self.y_op[y_vars] - self.y_a[y_vars]).values
+
+        # SaSqr = scipy.linalg.sqrtm(Sa)
+        # SaSqr_inv = pyOE.pyOEcore._invertMatrix(SaSqr)
+
+        # SeSqr = scipy.linalg.sqrtm(Se)
+        # SeSqr_inv = pyOE.pyOEcore._invertMatrix(SeSqr)
+
+        # Ktilde = SeSqr_inv.dot(K).dot(SaSqr)
+        # U,s,vT = np.linalg.svd(Ktilde, full_matrices=False)
+        # Lam = np.diag(s)
+        # LamSq = Lam.dot(Lam)
+
+        # m = len(y_vars)
+        # invM= pyOE.pyOEcore._invertMatrix(LamSq + np.eye(m))
+        # Sy = SeSqr.dot(U).dot(LamSq).dot(invM).dot(LamSq).dot(U.T).dot(SeSqr)
+
+        # Sz4y = LamSq.dot(invM).dot(LamSq)
+        # z4y = U.T.dot(SeSqr_inv).dot(d_y)
+
+        # eigenvalues_compl = np.diag(Sz4y) # because it is diagonal
+
+        # eigenvalues = s**4/(1+s**2) #equivalent!
+        # assert np.isclose(eigenvalues_compl, eigenvalues).all()
+
+        # notNull = ~np.isclose(0,eigenvalues)
+        # chi2 = z4y[notNull]**2/eigenvalues[notNull]
+        # chi2critical = scipy.stats.chi2.isf(significance, 1)
 
         return chi, chi2TestY
 
-
-    def chiSquareTestXOptimalPrior(self, significance=0.05):
+    def chiSquareTestXOptimalPrior(self, significance=0.05, atol=1e-5):
         """
         test with significance level 'significance' whether retrieval agrees
         with prior in x space (see chapter 12.3.3.3 of Rodgers, 2000)
@@ -764,6 +868,10 @@ class optimalEstimation(object):
         significance  : real, optional
           significance level, defaults to 0.05, i.e. probability is 5% that
            correct null hypothesis is rejected.
+        atol : float (default 1e-5)
+            The absolute tolerance for comparing eigen values to zero. We 
+            found that values should be than the numpy.isclose defualt value 
+            of 1e-8.
 
         Returns
         -------
@@ -782,16 +890,47 @@ class optimalEstimation(object):
 
         Sa = self.S_a.values
         K = self.K_i[self.convI].values
+        S_ep = self.S_Ep.values
 
         # Rodgers eq. 12.12
-        KSaKSep_inv = _invertMatrix(K.dot(Sa).dot(K.T) + self.S_y)
+        KSaKSep_inv = _invertMatrix(K.dot(Sa).dot(K.T) + S_ep)
         Sxd = Sa.dot(K.T).dot(KSaKSep_inv).dot(K).dot(Sa)
-        chi2, chi2TestX = _testChi2(Sxd, delta_x, significance)
+        chi2, chi2TestX = _testChi2(Sxd, delta_x, significance, atol)
 
+        #######  Alternative based on execise Rodgers 12.1 #######
+
+        # Se = y_cov.values
+        # K = self.K_i[self.convI].values
+        # Sa = x_cov.sel(season=season).to_pandas().loc[x_vars,x_vars].values
+        # d_x = (self.x_op[x_vars] - self.x_a[x_vars]).values
+
+        # SaSqr = scipy.linalg.sqrtm(Sa)
+        # SaSqr_inv = pyOE.pyOEcore._invertMatrix(SaSqr)
+
+        # SeSqr = scipy.linalg.sqrtm(Se)
+        # SeSqr_inv = pyOE.pyOEcore._invertMatrix(SeSqr)
+
+        # Ktilde = SeSqr_inv.dot(K).dot(SaSqr)
+        # U,s,vT = np.linalg.svd(Ktilde, full_matrices=False)
+        # Lam = np.diag(s)
+
+        # m = len(y_vars)
+        # invM= pyOE.pyOEcore._invertMatrix(Lam.dot(Lam) + np.eye(m))
+        # Sx = SaSqr.dot(vT.T).dot(Lam).dot(invM).dot(Lam).dot(vT)
+
+        # z4x = vT.dot(SaSqr_inv).dot(d_x)
+        # Sz4x = Lam.dot(invM).dot(Lam)
+
+        # eigenvalues_compl = np.diag(Sz4x) # because it is diagonal
+        # eigenvalues = s**2/(1+s**2) #equivalent!
+
+        # assert np.isclose(eigenvalues_compl, eigenvalues).all()
+
+        # notNull = ~np.isclose(0,eigenvalues)
+        # chi2 = z4x[notNull]**2/eigenvalues[notNull]
+        # chi2critical = scipy.stats.chi2.isf(significance, 1)
 
         return chi2, chi2TestX
-
-
 
     def saveResults(self, fname):
         r'''
@@ -820,8 +959,8 @@ class optimalEstimation(object):
     ):
         r'''
         Plot the retrieval results using 4 panels: (1) iterations of x
-        (normalized to self.x_truth or x[0]), (2) iterations of y (normalized to
-        y_obs), (3) iterations of degrees of freedom, (4) iterations of
+        (normalized to self.x_truth or x[0]), (2) iterations of y (normalized
+        to y_obs), (3) iterations of degrees of freedom, (4) iterations of
         convergence criteria
 
         Parameters
@@ -958,9 +1097,11 @@ class optimalEstimation(object):
             summary['x_truth'] = self.x_truth.rename_axis('x_vars')
 
         if hasattr(self, 'nonlinearity'):
-            summary['nonlinearity'] = self.nonlinearity
-        if hasattr(self, 'trueNonlinearity'):
-            summary['trueNonlinearity'] = self.trueNonlinearity
+            summary['nonlinearity'] = self.linearity
+        if hasattr(self, 'trueLinearityChi2'):
+            summary['trueLinearityChi2'] = self.trueLinearityChi2
+            summary['trueLinearityChi2Critical'] = \
+                self.trueLinearityChi2Critical
         if hasattr(self, 'chi2Results'):
             summary['chi2value'] = self.chi2Results['chi2value']
             summary['chi2critical'] = self.chi2Results['chi2critical']
@@ -1072,7 +1213,7 @@ def _niceColors(length, cmap='hsv'):
     return colors
 
 
-def _invertMatrix(A, raise_error = True):
+def _invertMatrix(A, raise_error=True):
     '''
     Wrapper funtion for np.linalg.inv, because original function reports
     LinAlgError if nan in array for some numpy versions. We want that the
@@ -1094,38 +1235,45 @@ def _invertMatrix(A, raise_error = True):
         return np.linalg.inv(A)
 
 
-def _estimateChi2(S,z):
-    '''Estimate Chi^2 to estimate whether z is from distribution with covariance S
-    
+def _estimateChi2(S, z, atol=1e-5):
+    '''Estimate Chi^2 to estimate whether z is from distribution with 
+    covariance S
+
     Parameters
     ----------
     S : {array}
         Covariance matrix
     z : {array}
         Vector to test
-    
+        atol : float (default 1e-5)
+            The absolute tolerance for comparing eigen values to zero. We 
+            found that values should be than the numpy.isclose defualt value 
+            of 1e-8.
+
     Returns
     -------
     float
         Estimated chi2 value
     '''
-    
+
     eigVals, eigVecsL = scipy.linalg.eig(S, left=True, right=False)
     z_prime = eigVecsL.T.dot(z)
-    
-    #Handle singular matrices. See Rodgers ch 12.2
-    notNull = ~np.isclose(eigVals,0)
+
+    # Handle singular matrices. See Rodgers ch 12.2
+    notNull = np.abs(eigVals) > atol
     dofs = np.sum(notNull)
     if dofs != len(notNull):
-        print('Warning. Singular Matrix with rank %i instead of %i'%(dofs,len(notNull)))
-        
-    #Rodgers eq. 12.1
-    chi2s= z_prime[notNull]**2/eigVals[notNull]
-    return chi2s.real, dofs
+        print('Warning. Singular Matrix with rank %i instead of %i' %
+              (dofs, len(notNull)))
 
-def _testChi2(S, z, significance):
+    # Rodgers eq. 12.1
+    chi2s = z_prime[notNull]**2/eigVals[notNull]
+    return np.real_if_close(chi2s), dofs
+
+
+def _testChi2(S, z, significance, atol=1e-5):
     '''Test whether z is from distribution with covariance S with significance
-    
+
     Parameters
     ----------
     S : {array}
@@ -1134,7 +1282,11 @@ def _testChi2(S, z, significance):
         Vector to test
     significance : {float}
         Significane level
-    
+        atol : float (default 1e-5)
+            The absolute tolerance for comparing eigen values to zero. We 
+            found that values should be than the numpy.isclose defualt value 
+            of 1e-8.
+            
     Returns
     -------
     float
@@ -1145,7 +1297,7 @@ def _testChi2(S, z, significance):
         True if Chi^2 test passed
 
     '''
-    chi2s_obs, dof = _estimateChi2(S,z)
+    chi2s_obs, dof = _estimateChi2(S, z, atol=atol)
     chi2_obs = np.sum(chi2s_obs)
     chi2_theo = scipy.stats.chi2.isf(significance, dof)
     # chi2_theo1 = scipy.stats.chi2.isf(significance, 1)
@@ -1153,6 +1305,3 @@ def _testChi2(S, z, significance):
     # print(chi2_obs<= chi2_theo, np.all(chi2s_obs<= chi2_theo1))
 
     return chi2_obs, chi2_theo
-
-
-
