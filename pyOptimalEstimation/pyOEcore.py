@@ -956,6 +956,7 @@ class optimalEstimation(object):
         self,
         cmap='viridis',
         figsize=(8, 10),
+        legend= True,
     ):
         r'''
         Plot the retrieval results using 4 panels: (1) iterations of x
@@ -1007,7 +1008,7 @@ class optimalEstimation(object):
             else:
                 xs = np.array(xs) / xs[0]
             sp1.plot(xs, label=key, color=colors[kk])
-        leg = sp1.legend(loc="best",
+        if legend: leg = sp1.legend(loc="best",
                          prop=font_manager.FontProperties(size=8))
         leg.get_frame().set_alpha(0.5)
         # sp1.set_xlabel("iteration")
@@ -1027,7 +1028,7 @@ class optimalEstimation(object):
             ys.append(self.y_obs[key])
             ys = np.array(ys) / ys[-1]
             sp2.plot(ys, label=key, color=colors[kk])
-        leg = sp2.legend(loc="best",
+        if legend: leg = sp2.legend(loc="best",
                          prop=font_manager.FontProperties(size=8))
         leg.get_frame().set_alpha(0.5)
         sp2.set_ylabel("y-values\n(normalized to measurement)")
@@ -1263,7 +1264,8 @@ def _estimateChi2(S, z, atol=1e-5):
     notNull = np.abs(eigVals) > atol
     dofs = np.sum(notNull)
     if dofs != len(notNull):
-        print('Warning. Singular Matrix with rank %i instead of %i' %
+        print('Warning. Singular Matrix with rank %i instead of %i. '\
+              '(This is typically save to ignore)       ' %
               (dofs, len(notNull)))
 
     # Rodgers eq. 12.1
