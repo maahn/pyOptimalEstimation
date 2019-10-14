@@ -956,7 +956,8 @@ class optimalEstimation(object):
         self,
         cmap='viridis',
         figsize=(8, 10),
-        legend= True,
+        legend=True,
+        mode='ratio',
     ):
         r'''
         Plot the retrieval results using 4 panels: (1) iterations of x
@@ -972,6 +973,11 @@ class optimalEstimation(object):
           colormap for 1st and 2nd panel (default 'hsv')
         figsize : tuple, optional
           Figure size in inch (default (8, 10))
+        legend : bool, optional
+          Add legend for X and Y (defualt True)
+        mode : str, optional
+          plot 'ratio' or 'difference' to truth/prior/measurements 
+          (defualt: ratio)
 
         Returns
         -------
@@ -1002,20 +1008,30 @@ class optimalEstimation(object):
             xs = list()
             for xx in self.x_i[:-1]:
                 xs.append(xx[key])
-            if self.x_truth is not None:
-                xs.append(self.x_truth[key])
-                xs = np.array(xs) / self.x_truth[key]
+            if mode == 'ratio':
+                if self.x_truth is not None:
+                    xs.append(self.x_truth[key])
+                    xs = np.array(xs) / self.x_truth[key]
+                else:
+                    xs = np.array(xs) / xs[0]
+            elif mode == 'difference':
+                if self.x_truth is not None:
+                    xs.append(self.x_truth[key])
+                    xs = np.array(xs) - self.x_truth[key]
+                else:
+                    xs = np.array(xs) - xs[0]
             else:
-                xs = np.array(xs) / xs[0]
+                ValueError('Do not understand mode %s'%mode)
             sp1.plot(xs, label=key, color=colors[kk])
-        if legend: leg = sp1.legend(loc="best",
+        if legend:  
+            leg = sp1.legend(loc="best",
                          prop=font_manager.FontProperties(size=8))
-        leg.get_frame().set_alpha(0.5)
+            leg.get_frame().set_alpha(0.5)
         # sp1.set_xlabel("iteration")
         if self.x_truth is not None:
-            sp1.set_ylabel("x-values\n(normalized to truth)")
+            sp1.set_ylabel("x-values\n(%s to truth)"%mode)
         else:
-            sp1.set_ylabel("x-values\n(normalized to prior)")
+            sp1.set_ylabel("x-values\n(%s to prior)"%mode)
 
         sp1.axvline(ind, color="k")
         sp1.axvline(len(self.x_i)-2, ls=":", color="k")
@@ -1026,12 +1042,16 @@ class optimalEstimation(object):
             for yy in self.y_i:
                 ys.append(yy[key])
             ys.append(self.y_obs[key])
-            ys = np.array(ys) / ys[-1]
+            if mode == 'ratio':
+                ys = np.array(ys) / ys[-1]
+            elif mode == 'difference':
+                ys = np.array(ys) - ys[-1]
             sp2.plot(ys, label=key, color=colors[kk])
-        if legend: leg = sp2.legend(loc="best",
+        if legend:  
+            leg = sp2.legend(loc="best",
                          prop=font_manager.FontProperties(size=8))
-        leg.get_frame().set_alpha(0.5)
-        sp2.set_ylabel("y-values\n(normalized to measurement)")
+            leg.get_frame().set_alpha(0.5)
+        sp2.set_ylabel("y-values\n(%s to measurements)"%mode)
         sp2.axvline(ind, color="k")
         sp2.axvline(len(self.x_i)-2, ls=":", color="k")
 
