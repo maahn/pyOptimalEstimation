@@ -1246,7 +1246,14 @@ def _invertMatrix(A, raise_error=True):
     if np.any(np.isnan(A)):
         warnings.warn("Found nan in Matrix during inversion", UserWarning)
         return np.zeros_like(A) * np.nan
-    elif np.linalg.cond(A) > 1/np.finfo(A.dtype).eps:
+
+    try:
+        eps = np.finfo(A.dtype).eps
+    except:
+        A = A.astype(np.float) 
+        eps = np.finfo(A.dtype).eps
+
+    if np.linalg.cond(A) > 1/eps:
         if raise_error:
             raise ValueError("Found singular matrix", UserWarning)
         else:
