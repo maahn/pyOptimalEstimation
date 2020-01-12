@@ -341,7 +341,7 @@ class optimalEstimation(object):
         startTime = time.time()
 
         S_a = np.array(self.S_a)  # Covariance of prior estimate of x
-        self.S_a_inv = _invertMatrix(S_a)  # S_a inverted
+        self.S_a_inv = invertMatrix(S_a)  # S_a inverted
         self.K_i = [0]*maxIter  # list of jacobians
         self.K_b_i = [0]*maxIter  # list of jacobians for parameter vector
         self.x_i = [0]*(maxIter+1)
@@ -376,7 +376,7 @@ class optimalEstimation(object):
             # S_Epsilon Covariance of measurement noise including parameter
             # uncertainty (Rodgers, sec 3.4.3)
             S_Ep = self.S_y.values + S_Ep_b
-            S_Ep_inv = _invertMatrix(S_Ep)  # S_Ep inverted
+            S_Ep_inv = invertMatrix(S_Ep)  # S_Ep inverted
 
             assert np.all(self.y_disturbed.keys() == self.S_y.keys())
             assert np.all(self.S_y.keys() == self.K_i[i].index)
@@ -392,7 +392,7 @@ class optimalEstimation(object):
             # reformulated using Turner and Löhnert 2013:
             B = (self.gam_i[i] * self.S_a_inv) + \
                 K.T.dot(S_Ep_inv.dot(K))  # eq 3
-            B_inv = _invertMatrix(B)
+            B_inv = invertMatrix(B)
             self.S_aposterior_i[i] = B_inv.dot(
                 (self.gam_i[i]**2 * self.S_a_inv) + K.T.dot(S_Ep_inv.dot(K))
             ).dot(B_inv)  # eq2
@@ -447,7 +447,7 @@ class optimalEstimation(object):
 
             # convergence criteria  eq 6
             dx = self.x_i[i] - self.x_i[i+1]
-            self.d_i2[i] = dx.T.dot(_invertMatrix(
+            self.d_i2[i] = dx.T.dot(invertMatrix(
                 self.S_aposterior_i[i])).dot(dx)
 
             # stop if we converged in the step before
@@ -599,7 +599,7 @@ class optimalEstimation(object):
             print("did not converge")
             return self.linearity, self.trueLinearity
         lamb, II = np.linalg.eig(self.S_aposterior_i[self.convI])
-        S_Ep_inv = _invertMatrix(np.array(self.S_y))
+        S_Ep_inv = invertMatrix(np.array(self.S_y))
         lamb[np.isclose(lamb, 0)] = 0
         if np.any(lamb < 0):
             print(
@@ -735,7 +735,7 @@ class optimalEstimation(object):
         K = self.K_i[self.convI].values
 
         # Rodgers eq. 12.9
-        KSaKSep_inv = _invertMatrix(K.dot(Sa).dot(K.T) + Sep)
+        KSaKSep_inv = invertMatrix(K.dot(Sa).dot(K.T) + Sep)
         S_deyd = Sep.dot(KSaKSep_inv).dot(Sep)
         delta_y = self.y_i[self.convI] - self.y_obs
 
@@ -817,7 +817,7 @@ class optimalEstimation(object):
 
         # Rodgers eq.12.16
         KSaK = K.dot(Sa).dot(K.T)
-        KSaKSep_inv = _invertMatrix(KSaK + S_ep)
+        KSaKSep_inv = invertMatrix(KSaK + S_ep)
         Syd = KSaK.dot(KSaKSep_inv).dot(KSaK)
 
         chi, chi2TestY = _testChi2(Syd, delta_y, significance, atol)
@@ -830,10 +830,10 @@ class optimalEstimation(object):
         # d_y = (self.y_op[y_vars] - self.y_a[y_vars]).values
 
         # SaSqr = scipy.linalg.sqrtm(Sa)
-        # SaSqr_inv = pyOE.pyOEcore._invertMatrix(SaSqr)
+        # SaSqr_inv = pyOE.pyOEcore.invertMatrix(SaSqr)
 
         # SeSqr = scipy.linalg.sqrtm(Se)
-        # SeSqr_inv = pyOE.pyOEcore._invertMatrix(SeSqr)
+        # SeSqr_inv = pyOE.pyOEcore.invertMatrix(SeSqr)
 
         # Ktilde = SeSqr_inv.dot(K).dot(SaSqr)
         # U,s,vT = np.linalg.svd(Ktilde, full_matrices=False)
@@ -841,7 +841,7 @@ class optimalEstimation(object):
         # LamSq = Lam.dot(Lam)
 
         # m = len(y_vars)
-        # invM= pyOE.pyOEcore._invertMatrix(LamSq + np.eye(m))
+        # invM= pyOE.pyOEcore.invertMatrix(LamSq + np.eye(m))
         # Sy = SeSqr.dot(U).dot(LamSq).dot(invM).dot(LamSq).dot(U.T).dot(SeSqr)
 
         # Sz4y = LamSq.dot(invM).dot(LamSq)
@@ -893,7 +893,7 @@ class optimalEstimation(object):
         S_ep = self.S_Ep.values
 
         # Rodgers eq. 12.12
-        KSaKSep_inv = _invertMatrix(K.dot(Sa).dot(K.T) + S_ep)
+        KSaKSep_inv = invertMatrix(K.dot(Sa).dot(K.T) + S_ep)
         Sxd = Sa.dot(K.T).dot(KSaKSep_inv).dot(K).dot(Sa)
         chi2, chi2TestX = _testChi2(Sxd, delta_x, significance, atol)
 
@@ -905,17 +905,17 @@ class optimalEstimation(object):
         # d_x = (self.x_op[x_vars] - self.x_a[x_vars]).values
 
         # SaSqr = scipy.linalg.sqrtm(Sa)
-        # SaSqr_inv = pyOE.pyOEcore._invertMatrix(SaSqr)
+        # SaSqr_inv = pyOE.pyOEcore.invertMatrix(SaSqr)
 
         # SeSqr = scipy.linalg.sqrtm(Se)
-        # SeSqr_inv = pyOE.pyOEcore._invertMatrix(SeSqr)
+        # SeSqr_inv = pyOE.pyOEcore.invertMatrix(SeSqr)
 
         # Ktilde = SeSqr_inv.dot(K).dot(SaSqr)
         # U,s,vT = np.linalg.svd(Ktilde, full_matrices=False)
         # Lam = np.diag(s)
 
         # m = len(y_vars)
-        # invM= pyOE.pyOEcore._invertMatrix(Lam.dot(Lam) + np.eye(m))
+        # invM= pyOE.pyOEcore.invertMatrix(Lam.dot(Lam) + np.eye(m))
         # Sx = SaSqr.dot(vT.T).dot(Lam).dot(invM).dot(Lam).dot(vT)
 
         # z4x = vT.dot(SaSqr_inv).dot(d_x)
@@ -1182,6 +1182,35 @@ def optimalEstimation_loadResults(fname):
     return oe
 
 
+def invertMatrix(A, raise_error=True):
+    '''
+    Wrapper funtion for np.linalg.inv, because original function reports
+    LinAlgError if nan in array for some numpy versions. We want that the
+    retrieval is robust with respect to that. Also, checks for singular 
+    matrices were added.
+    '''
+    A = np.asarray(A)
+
+    if np.any(np.isnan(A)):
+        warnings.warn("Found nan in Matrix during inversion", UserWarning)
+        return np.zeros_like(A) * np.nan
+
+    try:
+        eps = np.finfo(A.dtype).eps
+    except:
+        A = A.astype(np.float) 
+        eps = np.finfo(A.dtype).eps
+
+    if np.linalg.cond(A) > 1/eps:
+        if raise_error:
+            raise ValueError("Found singular matrix", UserWarning)
+        else:
+            warnings.warn("Found singular matrix", UserWarning)
+            return np.zeros_like(A) * np.nan
+    else:
+        return np.linalg.inv(A)
+
+
 def _oeDict2Object(oeDict):
     r'''
     Helper function to convert a oe-dictionary (usually loaded from a file) to
@@ -1232,35 +1261,6 @@ def _niceColors(length, cmap='hsv'):
     for l in range(length):
         colors.append(cm(1.*l/length))
     return colors
-
-
-def _invertMatrix(A, raise_error=True):
-    '''
-    Wrapper funtion for np.linalg.inv, because original function reports
-    LinAlgError if nan in array for some numpy versions. We want that the
-    retrieval is robust with respect to that. Also, checks for singular 
-    matrices were added.
-    '''
-    A = np.asarray(A)
-
-    if np.any(np.isnan(A)):
-        warnings.warn("Found nan in Matrix during inversion", UserWarning)
-        return np.zeros_like(A) * np.nan
-
-    try:
-        eps = np.finfo(A.dtype).eps
-    except:
-        A = A.astype(np.float) 
-        eps = np.finfo(A.dtype).eps
-
-    if np.linalg.cond(A) > 1/eps:
-        if raise_error:
-            raise ValueError("Found singular matrix", UserWarning)
-        else:
-            warnings.warn("Found singular matrix", UserWarning)
-            return np.zeros_like(A) * np.nan
-    else:
-        return np.linalg.inv(A)
 
 
 def _estimateChi2(S, z, atol=1e-5):
