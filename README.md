@@ -3,7 +3,7 @@
 [![Build Status](https://www.travis-ci.org/maahn/pyOptimalEstimation.svg?branch=master)](https://www.travis-ci.org/maahn/pyOptimalEstimation)
 [![Coverage Status](https://coveralls.io/repos/github/maahn/pyOptimalEstimation/badge.svg?branch=master)](https://coveralls.io/github/maahn/pyOptimalEstimation?branch=master)
 
-# "pyOptimalEstimation" Package
+# "pyOptimalEstimation" Package v1.0
 
 Python package to solve an inverse problem using Optimal Estimation
 and an arbitrary Forward model following Rodgers, 2000.
@@ -18,19 +18,19 @@ in the terminal. If you do not have root privileges, you can also do:
 ```
   python setup.py --user install
 ```
-which will install pyOptimalEstimation in userbase/lib/pythonX.Y/site-packages
+which will install pyOptimalEstimation in `userbase/lib/pythonX.Y/site-packages`
 or
 ```
   python setup.py install --home=~
 ```
-which will install pyOptimalEstimation in ~/lib/python.
-
-## Manual
-
-See https://pyoptimalestimation.readthedocs.io/en/latest/ for documentation.
+which will install pyOptimalEstimation in `~/lib/python`.
 
 ## Examples
 
 Annotated example applications are available at https://github.com/maahn/pyOptimalEstimation_examples.
+
+## API documentation
+
+See https://pyoptimalestimation.readthedocs.io/en/latest/ for documentation.
 
 

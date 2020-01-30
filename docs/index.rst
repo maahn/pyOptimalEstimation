@@ -14,8 +14,15 @@ Download
 
 The code is available at https://github.com/maahn/pyOptimalEstimation
 
+Examples
+--------
+
+Please see pyOptimalEstimation/examples for a minimal working example. For more extensive examples, check out  https://github.com/maahn/pyOptimalEstimation_examples
+
+
 Installation
 ------------
+Make sure you use Python 2.7, 3.6 or newer.
 
 Change to the folder containing the project and do ::
 
@@ -32,13 +39,8 @@ which will install pyOptimalEstimation in userbase/lib/pythonX.Y/site-packages o
 which will install pyOptimalEstimation in ~/lib/python.
 
 
-Example
--------
-Please see pyOptimalEstimation/examples for a minimal working example.
-
-
-:mod:`pyOEcore` Module
-----------------------
+API documentation
+-----------------
 
 .. automodule:: pyOptimalEstimation.pyOEcore
     :members:
