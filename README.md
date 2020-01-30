@@ -1,3 +1,4 @@
+[![PyPI version](https://badge.fury.io/py/pyOptimalEstimation.svg)](https://badge.fury.io/py/pyOptimalEstimation)
 [![Documentation Status](https://readthedocs.org/projects/pyoptimalestimation/badge/?version=latest)](https://pyoptimalestimation.readthedocs.io/en/latest/?badge=latest)
 [![Build Status](https://www.travis-ci.org/maahn/pyOptimalEstimation.svg?branch=master)](https://www.travis-ci.org/maahn/pyOptimalEstimation)
 [![Coverage Status](https://coveralls.io/repos/github/maahn/pyOptimalEstimation/badge.svg?branch=master)](https://coveralls.io/github/maahn/pyOptimalEstimation?branch=master)
@@ -27,5 +28,9 @@ which will install pyOptimalEstimation in ~/lib/python.
 ## Manual
 
 See https://pyoptimalestimation.readthedocs.io/en/latest/ for documentation.
+
+## Examples
+
+Annotated example applications are available at https://github.com/maahn/pyOptimalEstimation_examples.
 
 
