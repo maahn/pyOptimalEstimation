@@ -217,7 +217,7 @@ class optimalEstimation(object):
 
         return
 
-    def getJacobian(self, xb):
+    def getJacobian(self, xb, y):
         r'''
         estimate Jacobian using the forward model and the specified disturbance
 
@@ -225,6 +225,8 @@ class optimalEstimation(object):
         ----------
         xb  : pd.Series or list or np.ndarray
           combination of state vector x and parameter vector b
+        y : pd.Series or list or np.ndarray
+          measurement vector for xb
 
         Returns
         -------
@@ -234,8 +236,9 @@ class optimalEstimation(object):
           Jacobian around b
         '''
         xb_vars = self.x_vars + self.b_vars
-        xb = pd.Series(xb, index=xb_vars, dtype=float)
+        # xb = pd.Series(xb, index=xb_vars, dtype=float)
         xb_err = pd.concat((self.x_a_err, self.b_p_err))
+        # y = pd.Series(y, index=self.y_vars, dtype=float)
 
         # If a factor is used to disturb xb, xb must not be zero.
         assert not (self.useFactorInJac and np.any(xb == 0))
@@ -249,12 +252,12 @@ class optimalEstimation(object):
         else:
             raise TypeError("disturbance must be type dict or float")
 
-        disturbedKeys = ["reference"]
+        disturbedKeys = []
         for tup in xb_vars:
             disturbedKeys.append("disturbed %s" % tup)
         self.xb_disturbed = pd.DataFrame(
             columns=xb_vars, index=disturbedKeys, dtype=float)
-        self.xb_disturbed.loc["reference"] = xb
+
         for xb_key in xb_vars:
             disturbed_xb_key = "disturbed %s" % xb_key
             self.xb_disturbed.loc[disturbed_xb_key] = xb
@@ -274,10 +277,6 @@ class optimalEstimation(object):
             self.y_disturbed.loc[xb_dist] = self.forward(
                 self.xb_disturbed.loc[xb_dist], **self.forwardKwArgs)
 
-        y = self.y_disturbed.loc["reference"]
-
-        # remove the reference from the disturbed keys!
-        disturbedKeys = disturbedKeys[1:]
         # create an empty jacobian matrix
         jacobian = pd.DataFrame(np.ones(
             (self.y_n, self.x_n+self.b_n)
@@ -332,7 +331,7 @@ class optimalEstimation(object):
         self.K_i = [0]*maxIter  # list of jacobians
         self.K_b_i = [0]*maxIter  # list of jacobians for parameter vector
         self.x_i = [0]*(maxIter+1)
-        self.y_i = [0]*maxIter
+        self.y_i = [0]*(maxIter+1)
         self.dgf_i = [0]*maxIter
         self.H_i = [0]*maxIter  # Shannon information content
         self.A_i = [0]*maxIter
@@ -344,16 +343,21 @@ class optimalEstimation(object):
             assert len(self.gammaFactor) <= maxIter
             self.gam_i[:len(self.gammaFactor)] = self.gammaFactor
 
+        # treat first guess
         if x_0 is None:
             self.x_i[0] = self.x_a
         else:
             self.x_i[0] = pd.Series(x_0, index=self.x_vars)
-        self.d_i2[0] = 1e333
+
+        # y of first guess
+        xb_i0 = pd.concat((self.x_i[0], self.b_p))
+        y = self.forward(xb_i0, **self.forwardKwArgs)
+        self.y_i[0] = pd.Series(y, index=self.y_vars, dtype=float)
 
         for i in range(maxIter):
 
             self.K_i[i], self.K_b_i[i] = self.getJacobian(
-                pd.concat((self.x_i[i], self.b_p)))
+                pd.concat((self.x_i[i], self.b_p)), self.y_i[i])
 
             if np.sum(self.S_b.shape) > 0:
                 S_Ep_b = self.K_b_i[i].values.dot(
@@ -370,10 +374,9 @@ class optimalEstimation(object):
             assert np.all(self.S_a.index == self.x_a.index)
             assert np.all(self.x_a.index.tolist(
             )+self.b_p.index.tolist() == self.xb_disturbed.columns)
-            assert np.all(self.xb_disturbed.index[1:].tolist(
+            assert np.all(self.xb_disturbed.index.tolist(
             ) == self.K_i[i].columns.tolist()+self.K_b_i[i].columns.tolist())
 
-            self.y_i[i] = self.y_disturbed.loc["reference"]
             K = np.array(self.K_i[i])
 
             # reformulated using Turner and Löhnert 2013:
@@ -391,10 +394,19 @@ class optimalEstimation(object):
             )
             G = B_inv.dot(K.T.dot(S_Ep_inv))
             self.A_i[i] = G.dot(K)  # eq 4
+            
+            #estimate next x
             self.x_i[i+1] = self.x_a +\
                 B_inv.dot(
                 K.T.dot(S_Ep_inv.dot(self.y_obs - self.y_i[i] +
                                      K.dot(self.x_i[i] - self.x_a))))  # eq 1
+            
+            # estimate next y
+            xb_i1 = pd.concat((self.x_i[i+1], self.b_p))
+            y = self.forward(xb_i1, **self.forwardKwArgs)
+            self.y_i[i+1] = pd.Series(y, index=self.y_vars, dtype=float)
+
+
             self.dgf_i[i] = np.trace(self.A_i[i])
             # eq. 2.80 Rodgers
             self.H_i[i] = -0.5 * \
@@ -432,10 +444,17 @@ class optimalEstimation(object):
                           ))
                     self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
 
-            # convergence criteria  eq 6
+            # more measurements than state variables
+            # if True:#self.x_n <= self.y_n:
+                # convergence criterion eq 5.29 Rodgers 2000
             dx = self.x_i[i] - self.x_i[i+1]
             self.d_i2[i] = dx.T.dot(invertMatrix(
                 self.S_aposterior_i[i])).dot(dx)
+            # more state variables than measurements
+            # else:
+            #     # convergence criterion eq 5.33 Rodgers 2000
+            #     dy = self.y_i[i] - self.y_i[i+1]
+
 
             # stop if we converged in the step before
             if self.converged:
@@ -485,7 +504,7 @@ class optimalEstimation(object):
         self.K_i = self.K_i[:i+1]
         self.K_b_i = self.K_b_i[:i+1]
         self.x_i = self.x_i[:i+2]
-        self.y_i = self.y_i[:i+1]
+        self.y_i = self.y_i[:i+2]
         self.dgf_i = self.dgf_i[:i+1]
         self.A_i = self.A_i[:i+1]
         self.H_i = self.H_i[:i+1]
