@@ -183,7 +183,7 @@ class optimalEstimation(object):
         self.b_vars = list(b_vars)
         self.b_n = len(self.b_vars)
         assert self.b_n == len(b_p)
-        self.b_p = pd.Series(b_p, index=self.b_vars)
+        self.b_p = pd.Series(b_p, index=self.b_vars, dtype=np.float64)
         self.S_b = pd.DataFrame(
             S_b, index=self.b_vars, columns=self.b_vars)
         self.b_p_err = np.sqrt(
