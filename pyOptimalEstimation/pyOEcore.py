@@ -445,16 +445,23 @@ class optimalEstimation(object):
                     self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
 
             # more measurements than state variables
-            # if True:#self.x_n <= self.y_n:
+            if self.x_n <= self.y_n:
                 # convergence criterion eq 5.29 Rodgers 2000
-            dx = self.x_i[i] - self.x_i[i+1]
-            self.d_i2[i] = dx.T.dot(invertMatrix(
-                self.S_aposterior_i[i])).dot(dx)
+                dx = self.x_i[i] - self.x_i[i+1]
+                self.d_i2[i] = dx.T.dot(invertMatrix(
+                    self.S_aposterior_i[i])).dot(dx)
+                d_i2_limit = self.x_n/float(self.convergenceFactor)
+                print(1)
             # more state variables than measurements
-            # else:
-            #     # convergence criterion eq 5.33 Rodgers 2000
-            #     dy = self.y_i[i] - self.y_i[i+1]
-
+            else:
+                # convergence criterion eq 5.33 Rodgers 2000
+                dy = self.y_i[i] - self.y_i[i+1]
+                KSaKSep_inv = invertMatrix(K.dot(S_a).dot(K.T) + S_Ep)
+                S_deyd = S_Ep.dot(KSaKSep_inv).dot(S_Ep)
+                self.d_i2[i] = dy.T.dot(invertMatrix(
+                    S_deyd)).dot(dy)
+                d_i2_limit = self.y_n/float(self.convergenceFactor)
+                print(2)
 
             # stop if we converged in the step before
             if self.converged:
@@ -476,9 +483,8 @@ class optimalEstimation(object):
 
             # calculate the convergence criteria
             if i != 0:
-                if (np.abs(self.d_i2[i]) < self.y_n/float(
-                    self.convergenceFactor)) and (self.gam_i[i] == 1
-                                                  ) and (self.d_i2[i] != 0):
+                if (np.abs(self.d_i2[i]) < d_i2_limit) and (
+                        self.gam_i[i] == 1) and (self.d_i2[i] != 0):
                     print("%.2f s, iteration %i, degrees of freedom: %.2f of"
                           " %i. convergence criteria fullfilled  %.3f" % (
                               time.time() -
