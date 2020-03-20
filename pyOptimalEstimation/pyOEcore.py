@@ -394,18 +394,17 @@ class optimalEstimation(object):
             )
             G = B_inv.dot(K.T.dot(S_Ep_inv))
             self.A_i[i] = G.dot(K)  # eq 4
-            
-            #estimate next x
+
+            # estimate next x
             self.x_i[i+1] = self.x_a +\
                 B_inv.dot(
                 K.T.dot(S_Ep_inv.dot(self.y_obs - self.y_i[i] +
                                      K.dot(self.x_i[i] - self.x_a))))  # eq 1
-            
+
             # estimate next y
             xb_i1 = pd.concat((self.x_i[i+1], self.b_p))
             y = self.forward(xb_i1, **self.forwardKwArgs)
             self.y_i[i+1] = pd.Series(y, index=self.y_vars, dtype=float)
-
 
             self.dgf_i[i] = np.trace(self.A_i[i])
             # eq. 2.80 Rodgers
@@ -1033,17 +1032,17 @@ class optimalEstimation(object):
                 else:
                     xs = np.array(xs) - xs[0]
             else:
-                ValueError('Do not understand mode %s'%mode)
+                ValueError('Do not understand mode %s' % mode)
             sp1.plot(xs, label=key, color=colors[kk])
-        if legend:  
+        if legend:
             leg = sp1.legend(loc="best",
-                         prop=font_manager.FontProperties(size=8))
+                             prop=font_manager.FontProperties(size=8))
             leg.get_frame().set_alpha(0.5)
         # sp1.set_xlabel("iteration")
         if self.x_truth is not None:
-            sp1.set_ylabel("x-values\n(%s to truth)"%mode)
+            sp1.set_ylabel("x-values\n(%s to truth)" % mode)
         else:
-            sp1.set_ylabel("x-values\n(%s to prior)"%mode)
+            sp1.set_ylabel("x-values\n(%s to prior)" % mode)
 
         sp1.axvline(ind, color="k")
         sp1.axvline(len(self.x_i)-2, ls=":", color="k")
@@ -1059,11 +1058,11 @@ class optimalEstimation(object):
             elif mode == 'difference':
                 ys = np.array(ys) - ys[-1]
             sp2.plot(ys, label=key, color=colors[kk])
-        if legend:  
+        if legend:
             leg = sp2.legend(loc="best",
-                         prop=font_manager.FontProperties(size=8))
+                             prop=font_manager.FontProperties(size=8))
             leg.get_frame().set_alpha(0.5)
-        sp2.set_ylabel("y-values\n(%s to measurements)"%mode)
+        sp2.set_ylabel("y-values\n(%s to measurements)" % mode)
         sp2.axvline(ind, color="k")
         sp2.axvline(len(self.x_i)-2, ls=":", color="k")
 
@@ -1210,7 +1209,7 @@ def invertMatrix(A, raise_error=True):
     try:
         eps = np.finfo(A.dtype).eps
     except:
-        A = A.astype(np.float) 
+        A = A.astype(np.float)
         eps = np.finfo(A.dtype).eps
 
     if np.linalg.cond(A) > 1/eps:
@@ -1303,7 +1302,7 @@ def _estimateChi2(S, z, atol=1e-5):
     notNull = np.abs(eigVals) > atol
     dofs = np.sum(notNull)
     if dofs != len(notNull):
-        print('Warning. Singular Matrix with rank %i instead of %i. '\
+        print('Warning. Singular Matrix with rank %i instead of %i. '
               '(This is typically save to ignore)       ' %
               (dofs, len(notNull)))
 
