@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
-'''
-pyOptimalEstimation
 
-Copyright (C) 2014-19 Maximilian Maahn, CU Boulder
-maximilian.maahn@colorado.edu
-https://github.com/maahn/pyOptimalEstimation
+# pyOptimalEstimation
 
-'''
+# Copyright (C) 2014-20 Maximilian Maahn, CU Boulder
+# maximilian.maahn@colorado.edu
+# https://github.com/maahn/pyOptimalEstimation
 
 from __future__ import absolute_import
 from __future__ import division
@@ -28,6 +26,7 @@ import pandas as pd
 class optimalEstimation(object):
     r'''
     The core optimalEstimation class, which contains all required parameters.
+    See [1]_ for an extensive introduction into Optimal Estimation theory.
 
     Parameters
     ----------
@@ -64,7 +63,7 @@ class optimalEstimation(object):
     x_lowerLimit : dict, optional
         reset state vector x[key] to x_lowerLimit[key] in case x_lowerLimit is
         undercut. defaults to {}.
-    x_upperLimitn : dict, optional
+    x_upperLimit : dict, optional
         reset state vector x[key] to x_upperLimit[key] in case x_upperLimit is
         exceeded. defaults to {}.
     disturbance : float or dict of floats, optional
@@ -75,12 +74,27 @@ class optimalEstimation(object):
         True if disturbance should be applied by multiplication, False if it
         should by applied by addition of fraction of prior. Defaults to False.
     gammaFactor : list of floats, optional
-        Use additional gamma parameter for retrieval, see [1]_.
+        Use additional gamma parameter for retrieval, see [2]_.
+    convergenceTest : {'auto', 'x', 'y'}, optional
+        Apply convergence test in x or y-space. If the default 'auto' is 
+        selected, the test will be done in x-space if len(x) <= len(y) and in 
+        y-space otherwise.
+    convergenceFactor : int, optional
+        Factor by which the convergence criterion needs to be smaller than
+        len(x) or len(y) 
 
     Attributes
     ----------
     converged : boolean
       True if retriveal converged successfully
+    x_op : pd.Series
+      optimal state given the observations, i.e. retrieval solution
+    y_op : pd.Series
+      Optimal y, i.e. observation associated with retrieval solution
+    S_op : pd.DataFrame
+      covariance of x_op, i.e. solution uncertainty
+    x_op_err : pd.Series
+      1 sigma errors of x_op. derived with sqrt(diag(S_op))
     convI : int
       iteration where convergence was achieved
     K_i : list of pd.DataFrame
@@ -99,14 +113,6 @@ class optimalEstimation(object):
       a posteriori covariance matrix of x for each iteration
     gam_i : list of floats
       gamma parameters used in retrievals, see also `gammaFactor` and  [1]_.
-    x_op : pd.Series
-      optimal state given the observations, i.e. retrieval solution
-    y_op : pd.Series
-      Optimal y, i.e. observation associated with retrieval solution
-    S_op : pd.DataFrame
-      covariance of x_op, i.e. solution uncertainty
-    x_op_err : pd.Series
-      1 sigma errors of x_op. derived with sqrt(diag(S_op))
     dgf : float
       total degrees of freedom for signal of the retrieval solution
     dgf_x : pd.Series
@@ -122,7 +128,11 @@ class optimalEstimation(object):
 
     References
     ----------
-    .. [1] Turner, D. D., and U. Löhnert, 2014: Information Content and
+    .. [1] Rodgers, C. D., 2000: Inverse Methods for Atmospheric Sounding:
+    Theory and Practice. World Scientific Publishing Company, 240 pp. 
+    https://library.wmo.int/index.php?lvl=notice_display&id=12279.
+
+    .. [2] Turner, D. D., and U. Löhnert, 2014: Information Content and
     Uncertainties in Thermodynamic Profiles and Liquid Cloud Properties
     Retrieved from the Ground-Based Atmospheric Emitted Radiance
     Interferometer (AERI). Journal of Applied Meteorology & Climatology, 53,
@@ -148,6 +158,7 @@ class optimalEstimation(object):
                  gammaFactor=None,
                  disturbance=0.1,
                  convergenceFactor=10,
+                 convergenceTest='auto',
                  forwardKwArgs={},
                  ):
 
@@ -196,6 +207,7 @@ class optimalEstimation(object):
         self.gammaFactor = gammaFactor
         self.disturbance = disturbance
         self.convergenceFactor = convergenceFactor
+        self.convergenceTest = convergenceTest
 
         self.converged = False
         self.K_i = None
@@ -213,6 +225,7 @@ class optimalEstimation(object):
         self.x_op_err = None
         self.dgf = None
         self.dgf_x = None
+
         self._y_a = None
 
         return
@@ -443,29 +456,40 @@ class optimalEstimation(object):
                           ))
                     self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
 
-            # more measurements than state variables
-            if self.x_n <= self.y_n:
+            # teest in x or more measurements than state variables
+            if (
+                (self.convergenceTest == 'x')
+                or
+                ((self.convergenceTest == 'auto') and (self.x_n <= self.y_n))
+            ):
                 # convergence criterion eq 5.29 Rodgers 2000
                 dx = self.x_i[i] - self.x_i[i+1]
                 self.d_i2[i] = dx.T.dot(invertMatrix(
                     self.S_aposterior_i[i])).dot(dx)
                 d_i2_limit = self.x_n/float(self.convergenceFactor)
-                print(1)
-            # more state variables than measurements
-            else:
+                usingTest = 'x-space'
+            # test in y or more state variables than measurements
+            elif (
+                (self.convergenceTest == 'y')
+                or
+                (self.convergenceTest == 'auto')
+            ):
                 # convergence criterion eq 5.33 Rodgers 2000
-                dy = self.y_i[i] - self.y_i[i+1]
-                KSaKSep_inv = invertMatrix(K.dot(S_a).dot(K.T) + S_Ep)
-                S_deyd = S_Ep.dot(KSaKSep_inv).dot(S_Ep)
-                self.d_i2[i] = dy.T.dot(invertMatrix(
-                    S_deyd)).dot(dy)
+                # S is modified based on Cilve Rodger's lecture notes
+                # as reported by Payal Mehta
+                dy = self.y_i[i+1] - self.y_i[i]
+                S = K.dot(self.S_aposterior_i[i].values).dot(K.T) + S_Ep
+                self.d_i2[i] = dy.T.dot(invertMatrix(S)).dot(dy)
                 d_i2_limit = self.y_n/float(self.convergenceFactor)
-                print(2)
+                usingTest = 'y-space'
+            else:
+                raise ValueError('Do not understand convergenceTest %s' %
+                                 self.convergenceTest)
 
             # stop if we converged in the step before
             if self.converged:
-                print("%.2f s, iteration %i, degrees of freedom: %.2f of %i. "
-                      " Done.  %.3f" % (
+                print("%.2f s, iteration %i, degrees of freedom: %.2f of %i, "
+                      "done.  %.3f" % (
                           time.time()-startTime, i, self.dgf_i[i], self.x_n,
                           self.d_i2[i]))
                 break
@@ -485,10 +509,10 @@ class optimalEstimation(object):
                 if (np.abs(self.d_i2[i]) < d_i2_limit) and (
                         self.gam_i[i] == 1) and (self.d_i2[i] != 0):
                     print("%.2f s, iteration %i, degrees of freedom: %.2f of"
-                          " %i. convergence criteria fullfilled  %.3f" % (
+                          " %i, converged (%s):  %.3f" % (
                               time.time() -
                               startTime, i, self.dgf_i[i], self.x_n,
-                              self.d_i2[i]))
+                              usingTest, self.d_i2[i]))
                     self.converged = True
                 elif (i > 1) and (self.dgf_i[i] == 0):
                     print("%.2f s, iteration %i, degrees of freedom: %.2f of "
@@ -501,10 +525,10 @@ class optimalEstimation(object):
                     break
                 else:
                     print("%.2f s, iteration %i, degrees of freedom:"
-                          " %.2f of %i. convergence criteria NOT fullfilled "
+                          " %.2f of %i, not converged (%s): "
                           " %.3f" % (
                               time.time()-startTime, i, self.dgf_i[i],
-                              self.x_n, self.d_i2[i]))
+                              self.x_n, usingTest, self.d_i2[i]))
 
         self.K_i = self.K_i[:i+1]
         self.K_b_i = self.K_b_i[:i+1]
@@ -1199,7 +1223,20 @@ def invertMatrix(A, raise_error=True):
     LinAlgError if nan in array for some numpy versions. We want that the
     retrieval is robust with respect to that. Also, checks for singular 
     matrices were added.
+    
+    Parameters
+    ----------
+    A : (..., M, M) array_like
+        Matrix to be inverted.
+    raise_error : {bool}, optional
+        ValueError is raised if A is singular (the default is True)
+    
+    Returns
+    -------
+    Ainv : (..., M, M) ndarray or matrix
+        Inverse of the matrix `A`.
     '''
+
     A = np.asarray(A)
 
     if np.any(np.isnan(A)):
