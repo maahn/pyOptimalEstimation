@@ -51,21 +51,21 @@ class optimalEstimation(object):
         provided, the value will be used for the routines linearityTest and
         plotIterations, but _not_ by the retrieval itself. Defaults to None/
     b_vars : list of str, optional
-        names of the elements of parameter vector b. defaults to [].
+        names of the elements of parameter vector b. Defaults to [].
     b_p : pd.Series or list or np.ndarray.
         parameter vector b.  defaults to []. Note that defining b_p makes
         only sence if S_b != 0. Otherwise it is easier (and cheaper) to
         hardcode b into the forward operator.
     S_b : pd.DataFrame or list or np.ndarray
-        covariance matrix of parameter b. defaults to [[]].
+        covariance matrix of parameter b. Defaults to [[]].
     forwardKwArgs : dict,optional
         additional keyword arguments for forward function.
     x_lowerLimit : dict, optional
         reset state vector x[key] to x_lowerLimit[key] in case x_lowerLimit is
-        undercut. defaults to {}.
+        undercut. Defaults to {}.
     x_upperLimit : dict, optional
         reset state vector x[key] to x_upperLimit[key] in case x_upperLimit is
-        exceeded. defaults to {}.
+        exceeded. Defaults to {}.
     disturbance : float or dict of floats, optional
         relative disturbance of statet vector x to estimate the Jacobian. Can
         be specified for every element of x seperately. Defaults to 0.1 of
@@ -75,10 +75,11 @@ class optimalEstimation(object):
         should by applied by addition of fraction of prior. Defaults to False.
     gammaFactor : list of floats, optional
         Use additional gamma parameter for retrieval, see [2]_.
-    convergenceTest : {'auto', 'x', 'y'}, optional
-        Apply convergence test in x or y-space. If the default 'auto' is 
+    convergenceTest : {'x', 'y', 'auto'}, optional
+        Apply convergence test in x or y-space. If 'auto' is 
         selected, the test will be done in x-space if len(x) <= len(y) and in 
-        y-space otherwise.
+        y-space otherwise. Experience shows that in both cases convergence is 
+        faster in x-space without impacting retrieval quality. Defaults to 'x'.
     convergenceFactor : int, optional
         Factor by which the convergence criterion needs to be smaller than
         len(x) or len(y) 
@@ -158,7 +159,7 @@ class optimalEstimation(object):
                  gammaFactor=None,
                  disturbance=0.1,
                  convergenceFactor=10,
-                 convergenceTest='auto',
+                 convergenceTest='x',
                  forwardKwArgs={},
                  ):
 
