@@ -109,7 +109,7 @@ class optimalEstimation(object):
       Averaging kernel for each iteration
     d_i2 : list of float
       convergence criteria for each iteration
-    S_aposterior_i : list of pd.DataFrame
+    S_aposteriori_i : list of pd.DataFrame
       a posteriori covariance matrix of x for each iteration
     gam_i : list of floats
       gamma parameters used in retrievals, see also `gammaFactor` and  [1]_.
@@ -216,7 +216,7 @@ class optimalEstimation(object):
         self.dgf_i = None
         self.A_i = None
         self.d_i2 = None
-        self.S_aposterior_i = None
+        self.S_aposteriori_i = None
         self.gam_i = None
         self.convI = None
         self.x_op = None
@@ -339,8 +339,6 @@ class optimalEstimation(object):
         self.converged = False
         startTime = time.time()
 
-        S_a = np.array(self.S_a)  # Covariance of prior estimate of x
-        self.S_a_inv = invertMatrix(S_a)  # S_a inverted
         self.K_i = [0]*maxIter  # list of jacobians
         self.K_b_i = [0]*maxIter  # list of jacobians for parameter vector
         self.x_i = [0]*(maxIter+1)
@@ -349,9 +347,15 @@ class optimalEstimation(object):
         self.H_i = [0]*maxIter  # Shannon information content
         self.A_i = [0]*maxIter
         self.d_i2 = [0]*maxIter  # convergence criteria
-        self.S_aposterior_i = [0] * maxIter
+        self.S_ep_i = [0] * maxIter
+        self.S_aposteriori_i = [0] * maxIter
         # self.Pxy_i = [0] *maxIter
         self.gam_i = [1]*maxIter
+
+        S_a = np.array(self.S_a)  # Covariance of prior estimate of x
+        assert np.all(S_a == S_a.T), 'S_a must be symmetric'
+        S_a_inv = invertMatrix(S_a)  # S_a inverted
+
         if self.gammaFactor:
             assert len(self.gammaFactor) <= maxIter
             self.gam_i[:len(self.gammaFactor)] = self.gammaFactor
@@ -373,14 +377,22 @@ class optimalEstimation(object):
                 pd.concat((self.x_i[i], self.b_p)), self.y_i[i])
 
             if np.sum(self.S_b.shape) > 0:
-                S_Ep_b = self.K_b_i[i].values.dot(
+                S_ep_b = self.K_b_i[i].values.dot(
                     self.S_b.values).dot(self.K_b_i[i].values.T)
             else:
-                S_Ep_b = 0
-            # S_Epsilon Covariance of measurement noise including parameter
+                S_ep_b = 0
+            # S_epsilon Covariance of measurement noise including parameter
             # uncertainty (Rodgers, sec 3.4.3)
-            S_Ep = self.S_y.values + S_Ep_b
-            S_Ep_inv = invertMatrix(S_Ep)  # S_Ep inverted
+            self.S_ep_i[i] = self.S_y.values + S_ep_b
+
+            # make sure S_y and S_ep are symmetric
+            assert np.all(self.S_y.values == self.S_y.values.T), \
+                'S_y must be symmetric'
+            assert np.all(self.S_ep_i[i] == self.S_ep_i[i].T), \
+                'S_ep must be symmetric'
+
+            # S_ep inverted
+            S_ep_inv = invertMatrix(self.S_ep_i[i])
 
             assert np.all(self.y_disturbed.keys() == self.S_y.keys())
             assert np.all(self.S_y.keys() == self.K_i[i].index)
@@ -393,25 +405,25 @@ class optimalEstimation(object):
             K = np.array(self.K_i[i])
 
             # reformulated using Turner and Löhnert 2013:
-            B = (self.gam_i[i] * self.S_a_inv) + \
-                K.T.dot(S_Ep_inv.dot(K))  # eq 3
+            B = (self.gam_i[i] * S_a_inv) + \
+                K.T.dot(S_ep_inv.dot(K))  # eq 3
             B_inv = invertMatrix(B)
-            self.S_aposterior_i[i] = B_inv.dot(
-                (self.gam_i[i]**2 * self.S_a_inv) + K.T.dot(S_Ep_inv.dot(K))
+            self.S_aposteriori_i[i] = B_inv.dot(
+                (self.gam_i[i]**2 * S_a_inv) + K.T.dot(S_ep_inv.dot(K))
             ).dot(B_inv)  # eq2
 
-            self.S_aposterior_i[i] = pd.DataFrame(
-                self.S_aposterior_i[i],
+            self.S_aposteriori_i[i] = pd.DataFrame(
+                self.S_aposteriori_i[i],
                 index=self.x_a.index,
                 columns=self.x_a.index
             )
-            G = B_inv.dot(K.T.dot(S_Ep_inv))
+            G = B_inv.dot(K.T.dot(S_ep_inv))
             self.A_i[i] = G.dot(K)  # eq 4
 
             # estimate next x
             self.x_i[i+1] = self.x_a +\
                 B_inv.dot(
-                K.T.dot(S_Ep_inv.dot(self.y_obs - self.y_i[i] +
+                K.T.dot(S_ep_inv.dot(self.y_obs - self.y_i[i] +
                                      K.dot(self.x_i[i] - self.x_a))))  # eq 1
 
             # estimate next y
@@ -456,7 +468,7 @@ class optimalEstimation(object):
                           ))
                     self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
 
-            # teest in x or more measurements than state variables
+            # test in x space for len(y) > len(x)
             if (
                 (self.convergenceTest == 'x')
                 or
@@ -465,26 +477,32 @@ class optimalEstimation(object):
                 # convergence criterion eq 5.29 Rodgers 2000
                 dx = self.x_i[i] - self.x_i[i+1]
                 self.d_i2[i] = dx.T.dot(invertMatrix(
-                    self.S_aposterior_i[i])).dot(dx)
+                    self.S_aposteriori_i[i])).dot(dx)
                 d_i2_limit = self.x_n/float(self.convergenceFactor)
                 usingTest = 'x-space'
-            # test in y or more state variables than measurements
+            # test in y space for for len(y) < len(x)
             elif (
                 (self.convergenceTest == 'y')
                 or
                 (self.convergenceTest == 'auto')
             ):
-                # convergence criterion eq 5.33 Rodgers 2000
-                # S is modified based on Cilve Rodger's lecture notes
-                # as reported by Payal Mehta
+                # convergence criterion eqs 5.27 &  5.33 Rodgers 2000
                 dy = self.y_i[i+1] - self.y_i[i]
-                S = K.dot(self.S_aposterior_i[i].values).dot(K.T) + S_Ep
-                self.d_i2[i] = dy.T.dot(invertMatrix(S)).dot(dy)
+                KSaKSep = K.dot(S_a).dot(K.T) + self.S_ep_i[i]
+                KSaKSep_inv = invertMatrix(KSaKSep)
+
+                S_deyd = self.S_ep_i[i].dot(KSaKSep_inv).dot(self.S_ep_i[i])
+
+                self.d_i2[i] = dy.T.dot(invertMatrix(
+                    S_deyd)).dot(dy)
                 d_i2_limit = self.y_n/float(self.convergenceFactor)
                 usingTest = 'y-space'
             else:
                 raise ValueError('Do not understand convergenceTest %s' %
                                  self.convergenceTest)
+
+            assert not self.d_i2[i] < 0, 'a negative convergence cirterion'
+            ' means someting has gotten really wrong'
 
             # stop if we converged in the step before
             if self.converged:
@@ -538,7 +556,9 @@ class optimalEstimation(object):
         self.A_i = self.A_i[:i+1]
         self.H_i = self.H_i[:i+1]
         self.d_i2 = self.d_i2[:i+1]
-        self.S_aposterior_i = self.S_aposterior_i[:i+1]
+        self.S_ep_i = self.S_ep_i[:i+1]
+
+        self.S_aposteriori_i = self.S_aposteriori_i[:i+1]
 
         self.gam_i = self.gam_i[:i+1]
         if self.converged:
@@ -546,24 +566,16 @@ class optimalEstimation(object):
 
             self.x_op = self.x_i[i]
             self.y_op = self.y_i[i]
-            self.S_op = self.S_aposterior_i[i]
+            self.S_op = self.S_aposteriori_i[i]
             self.x_op_err = np.sqrt(
                 pd.Series(np.diag(
-                    self.S_aposterior_i[self.convI]), index=self.x_vars)
+                    self.S_aposteriori_i[self.convI]), index=self.x_vars)
             )
             self.dgf = self.dgf_i[i]
             self.dgf_x = pd.Series(
                 np.diag(self.A_i[i]), index=self.x_vars
             )
-            # S_Epsilon Covariance of measurement noise including parameter
-            # uncertainty (Rodgers, sec 3.4.3)
-            S_Ep_b = self.K_b_i[self.convI].values.dot(
-                self.S_b.values).dot(self.K_b_i[self.convI].values.T)
-            self.S_Ep = pd.DataFrame(
-                self.S_y.values + S_Ep_b,
-                index=self.y_vars,
-                columns=self.y_vars
-            )
+
         else:
             self.convI = -9999
             self.x_op = np.nan
@@ -572,7 +584,6 @@ class optimalEstimation(object):
             self.x_op_err = np.nan
             self.dgf = np.nan
             self.dgf_x = np.nan
-            self.S_Ep = np.nan
 
         return self.converged
 
@@ -633,13 +644,13 @@ class optimalEstimation(object):
         if not self.converged:
             print("did not converge")
             return self.linearity, self.trueLinearity
-        lamb, II = np.linalg.eig(self.S_aposterior_i[self.convI])
-        S_Ep_inv = invertMatrix(np.array(self.S_y))
+        lamb, II = np.linalg.eig(self.S_aposteriori_i[self.convI])
+        S_ep_inv = invertMatrix(np.array(self.S_ep_i[self.convI]))
         lamb[np.isclose(lamb, 0)] = 0
         if np.any(lamb < 0):
             print(
-                "found negative eigenvalues of S_aposterior_i, S_aposterior_i"
-                " not semipositive definite!")
+                "found negative eigenvalues of S_aposteriori_i, "
+                " S_aposteriori_i not semipositive definite!")
             return self.linearity, self.trueLinearity
         error_pattern = lamb**0.5 * II
         for hh in range(self.x_n):
@@ -649,7 +660,7 @@ class optimalEstimation(object):
             y_hat = self.forward(xb_hat, **self.forwardKwArgs)
             del_y = (y_hat - self.y_i[self.convI] - self.K_i[self.convI].dot(
                 (x_hat - self.x_i[self.convI]).values))
-            self.linearity[hh] = del_y.T.dot(S_Ep_inv).dot(del_y)
+            self.linearity[hh] = del_y.T.dot(S_ep_inv).dot(del_y)
 
         self.linearity = sorted(
             self.linearity, reverse=True)[slice(None, maxErrorPatterns)]
@@ -659,7 +670,7 @@ class optimalEstimation(object):
             y_truth = self.forward(xb_truth, **self.forwardKwArgs)
             del_y = (y_truth - self.y_i[self.convI] - self.K_i[self.convI].dot(
                 (self.x_truth - self.x_i[self.convI]).values))
-            self.trueLinearity = del_y.T.dot(S_Ep_inv).dot(del_y)
+            self.trueLinearity = del_y.T.dot(S_ep_inv).dot(del_y)
 
             res = _testChi2(self.S_y.values, del_y, significance, atol)
             self.trueLinearityChi2, self.trueLinearityChi2Critical = res
@@ -766,7 +777,7 @@ class optimalEstimation(object):
         assert self.converged
 
         Sa = self.S_a.values
-        Sep = self.S_Ep.values
+        Sep = self.S_ep_i[self.convI]
         K = self.K_i[self.convI].values
 
         # Rodgers eq. 12.9
@@ -808,7 +819,7 @@ class optimalEstimation(object):
 
         delta_y = self.y_obs - self.y_a
         Sa = self.S_a.values
-        Sep = self.S_Ep.values
+        Sep = self.S_ep_i[self.convI]
         K = self.K_i[self.convI].values
         KSaKSep = K.dot(Sa).dot(K.T) + Sep
 
@@ -847,7 +858,7 @@ class optimalEstimation(object):
 
         delta_y = self.y_i[self.convI] - self.y_a
         Sa = self.S_a.values
-        S_ep = self.S_Ep.values
+        S_ep = self.S_ep_i[self.convI]
         K = self.K_i[self.convI].values
 
         # Rodgers eq.12.16
@@ -925,7 +936,7 @@ class optimalEstimation(object):
 
         Sa = self.S_a.values
         K = self.K_i[self.convI].values
-        S_ep = self.S_Ep.values
+        S_ep = self.S_ep_i[self.convI]
 
         # Rodgers eq. 12.12
         KSaKSep_inv = invertMatrix(K.dot(Sa).dot(K.T) + S_ep)
@@ -1223,14 +1234,14 @@ def invertMatrix(A, raise_error=True):
     LinAlgError if nan in array for some numpy versions. We want that the
     retrieval is robust with respect to that. Also, checks for singular 
     matrices were added.
-    
+
     Parameters
     ----------
     A : (..., M, M) array_like
         Matrix to be inverted.
     raise_error : {bool}, optional
         ValueError is raised if A is singular (the default is True)
-    
+
     Returns
     -------
     Ainv : (..., M, M) ndarray or matrix
