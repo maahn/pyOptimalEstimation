@@ -27,3 +27,5 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from .pyOEcore import optimalEstimation, optimalEstimation_loadResults, invertMatrix
+
+__version__ = '1.1'

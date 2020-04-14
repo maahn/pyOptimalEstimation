@@ -32,7 +32,7 @@ with io.open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 if __name__ == "__main__":
     setup(
         name='pyOptimalEstimation',
-        version='1.0',
+        version='1.1',
         packages=['pyOptimalEstimation', ],
         license='GNU General Public License 3',
         author="Maximilian Maahn",
