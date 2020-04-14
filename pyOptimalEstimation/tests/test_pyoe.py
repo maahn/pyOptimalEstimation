@@ -2,6 +2,7 @@
 
 import numpy as np
 import pandas as pn
+import scipy
 from copy import deepcopy
 import pyOptimalEstimation as pyOE
 
@@ -52,6 +53,7 @@ class TestFullRetrieval(object):
         print('np', np.__version__)
         print('pn', pn.__version__)
         print('pyOE', pyOE.__version__)
+        print('scipy', scipy.__version__)
 
         assert np.all(np.isclose(oe.x_op.values, np.array(
             [230.75639479,  58.49351178,  12.32118448])))
@@ -150,6 +152,7 @@ class TestFullRetrieval(object):
         print('np', np.__version__)
         print('pn', pn.__version__)
         print('pyOE', pyOE.__version__)
+        print('scipy', scipy.__version__)
 
         assert np.all(np.isclose(oe.x_op.values, np.array(
             [255.30992222,  58.68130862])))
