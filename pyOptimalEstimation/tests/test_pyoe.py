@@ -49,6 +49,10 @@ class TestFullRetrieval(object):
         oe.chiSquareTest()
         oe.linearityTest()
 
+        print('np', np.__version__)
+        print('pn', pn.__version__)
+        print('pyOE', pyOE.__version__)
+
         assert np.all(np.isclose(oe.x_op.values, np.array(
             [230.75639479,  58.49351178,  12.32118448])))
         assert np.all(np.isclose(oe.x_op_err.values, np.array(
@@ -142,6 +146,10 @@ class TestFullRetrieval(object):
         oe.doRetrieval()
         oe.chiSquareTest()
         oe.linearityTest()
+
+        print('np', np.__version__)
+        print('pn', pn.__version__)
+        print('pyOE', pyOE.__version__)
 
         assert np.all(np.isclose(oe.x_op.values, np.array(
             [255.30992222,  58.68130862])))
