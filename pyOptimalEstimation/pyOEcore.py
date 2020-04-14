@@ -389,7 +389,7 @@ class optimalEstimation(object):
             # make sure S_y and S_ep are symmetric
             assert np.all(self.S_y.values == self.S_y.values.T), \
                 'S_y must be symmetric'
-            assert np.all(self.S_ep_i[i] == self.S_ep_i[i].T), \
+            assert np.isclose(self.S_ep_i[i] , self.S_ep_i[i].T).all(), \
                 'S_ep must be symmetric'
 
             # S_ep inverted

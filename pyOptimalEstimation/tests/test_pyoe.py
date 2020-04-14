@@ -184,10 +184,10 @@ class TestFullRetrieval(object):
                 np.array([43.2699487, 38.03349498,  0.27384159,  0.10981957])
             )
         )
-        assert np.isclose(oe.trueLinearity,  0.04110208048340345)
+        assert np.isclose(oe.trueLinearity,  0.039634853402863594)
         assert np.all(
             np.isclose(
                 oe.linearity, np.array(
-                    [0.03133750490168422, 0.006547656561564478])
+                    [0.028885293293757677, 0.006204167676424315])
             )
         )
