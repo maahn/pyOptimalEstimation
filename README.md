@@ -2,6 +2,8 @@
 [![Documentation Status](https://readthedocs.org/projects/pyoptimalestimation/badge/?version=latest)](https://pyoptimalestimation.readthedocs.io/en/latest/?badge=latest)
 [![Build Status](https://www.travis-ci.org/maahn/pyOptimalEstimation.svg?branch=master)](https://www.travis-ci.org/maahn/pyOptimalEstimation)
 [![Coverage Status](https://coveralls.io/repos/github/maahn/pyOptimalEstimation/badge.svg?branch=master)](https://coveralls.io/github/maahn/pyOptimalEstimation?branch=master)
+[![Downloads](https://readthedocs.org/projects/pyoptimalestimation/badge/?version=latest)](https://static.pepy.tech/badge/pyOptimalEstimation)
+
 
 # "pyOptimalEstimation" Package v1.1
 
@@ -25,6 +27,12 @@ or
 ```
 which will install pyOptimalEstimation in `~/lib/python`.
 
+## Reference
+
+Please reference to our paper if you use the pyOptimalEstimation package
+
+Maahn, M., D. D. Turner, U. Löhnert, D. J. Posselt, K. Ebell, G. G. Mace, and J. M. Comstock, 2020: Optimal Estimation Retrievals and Their Uncertainties: What Every Atmospheric Scientist Should Know. Bull. Amer. Meteor. Soc., doi:https://doi.org/10.1175/BAMS-D-19-0027.1
+
 ## Examples
 
 Annotated example applications are available at https://github.com/maahn/pyOptimalEstimation_examples.
@@ -32,5 +40,4 @@ Annotated example applications are available at https://github.com/maahn/pyOptim
 ## API documentation
 
 See https://pyoptimalestimation.readthedocs.io/en/latest/ for documentation.
-
 
