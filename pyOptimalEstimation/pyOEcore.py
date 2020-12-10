@@ -1210,7 +1210,7 @@ class optimalEstimation(object):
         return summary
 
 
-def optimalEstimation_loadResults(fname):
+def optimalEstimation_loadResults(fname, allow_pickle=False):
     r'''
     Helper function to load a saved pyOptimalEstimation object
 
@@ -1224,7 +1224,7 @@ def optimalEstimation_loadResults(fname):
     pyOptimalEstimation object
       pyOptimalEstimation obtained from file.
     '''
-    oeDict = np.load(fname)
+    oeDict = np.load(fname, allow_pickle=allow_pickle)
     oe = _oeDict2Object(oeDict.tolist())
     return oe
 
