@@ -1291,8 +1291,8 @@ def _oeDict2Object(oeDict):
         oeDict.pop("x_a"),
         oeDict.pop("S_a"),
         oeDict.pop("y_vars"),
-        oeDict.pop("S_y"),
         oeDict.pop("y_obs"),
+        oeDict.pop("S_y"),
         None
     )
     for kk in oeDict.keys():
