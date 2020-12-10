@@ -1210,7 +1210,7 @@ class optimalEstimation(object):
         return summary
 
 
-def optimalEstimation_loadResults(fname, allow_pickle=False):
+def optimalEstimation_loadResults(fname, allow_pickle=True):
     r'''
     Helper function to load a saved pyOptimalEstimation object
 
