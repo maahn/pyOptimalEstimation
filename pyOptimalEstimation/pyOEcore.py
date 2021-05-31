@@ -161,7 +161,7 @@ class optimalEstimation(object):
                  convergenceFactor=10,
                  convergenceTest='x',
                  forwardKwArgs={},
-                 forwardKwArgsM={}
+                 forwardKwArgsM=None
                  ):
 
         # some initital tests
@@ -337,73 +337,7 @@ class optimalEstimation(object):
         pd.DataFrame
           Jacobian around b
         '''
-        xb_vars = self.x_vars + self.b_vars
-        # xb = pd.Series(xb, index=xb_vars, dtype=float)
-        xb_err = pd.concat((self.x_a_err, self.b_p_err))
-        # y = pd.Series(y, index=self.y_vars, dtype=float)
-
-        # If a factor is used to disturb xb, xb must not be zero.
-        assert not (self.useFactorInJac and np.any(xb == 0))
-
-        if type(self.disturbance) == float:
-            disturbances = dict() 
-            for key in xb_vars:
-                disturbances[key] = self.disturbance
-        elif type(self.disturbance) == dict:
-            disturbances = self.disturbance
-        else:
-            raise TypeError("disturbance must be type dict or float")
-
-        disturbedKeys = []
-        for tup in xb_vars:
-            disturbedKeys.append("disturbed %s" % tup)
-        self.xb_disturbed = pd.DataFrame(
-            columns=xb_vars, index=disturbedKeys, dtype=float)
         
-        for xb_key in xb_vars:
-            disturbed_xb_key = "disturbed %s" % xb_key
-            self.xb_disturbed.loc[disturbed_xb_key] = xb
-            # apply disturbance here!!
-            if self.useFactorInJac:
-                self.xb_disturbed[xb_key][disturbed_xb_key] = xb[xb_key] * \
-                    disturbances[xb_key]
-            else:
-                self.xb_disturbed[xb_key][disturbed_xb_key] = xb[xb_key] + \
-                    (disturbances[xb_key] * xb_err.loc[xb_key])
-
-# Prev version:
-        #self.y_disturbed = pd.DataFrame(
-        #    columns=self.y_vars,
-        #    index=disturbedKeys,
-        #    dtype=np.float64
-        #)
-        #for xb_dist in self.xb_disturbed.index:
-        #    self.y_disturbed.loc[xb_dist] = self.forward(
-        #        self.xb_disturbed.loc[xb_dist], **self.forwardKwArgs)
-        # 
-        # create an empty jacobian matrix
-        #jacobian = pd.DataFrame(np.ones(
-        #    (self.y_n, self.x_n+self.b_n)
-        #), index=self.y_vars, columns=disturbedKeys)
-
-        # calc Jacobian
-        #for y_key in self.y_vars:
-        #    for x_key in xb_vars:
-        #        # realtive disturbance
-        #        if self.useFactorInJac:
-        #            dist = xb[x_key] * (disturbances[x_key] - 1)
-        #        else:
-        #            dist = disturbances[x_key] * xb_err.loc[x_key]
-        #            assert dist != 0, 'S_a&s_b must not contain zeros on '\
-        #                'diagonal'
-        #        jacobian["disturbed %s" % x_key][y_key] = (
-        #            self.y_disturbed[y_key]["disturbed %s" % x_key] - y[y_key]
-        #        ) / dist
-        
-        
-        #aux_y_disturbed = self.y_disturbed.to_numpy().T # This line only if not using the multiple calls
-        # from RTTOV but still using the broadcast Jacobian calculation
-                
 #NEW version:
 
 # This version exploits the advantage of calling the forward model for several
@@ -420,45 +354,115 @@ class optimalEstimation(object):
 # broadcasting rules, which avoid the use of loops. This last step provides roughly
 # speaking 20 % speed-up if used alone
 
+# Author: M. Echeverri, May 2021.
+        
+        xb_vars = self.x_vars + self.b_vars
+        # xb = pd.Series(xb, index=xb_vars, dtype=float)
+        xb_err = pd.concat((self.x_a_err, self.b_p_err))
+        # y = pd.Series(y, index=self.y_vars, dtype=float)
+
+        # If a factor is used to disturb xb, xb must not be zero.
+        assert not (self.useFactorInJac and np.any(xb == 0))
+
+        if type(self.disturbance) == float:
+            disturbances = dict() 
+            for key in xb_vars:
+                disturbances[key] = self.disturbance
+        elif type(self.disturbance) == dict:
+            disturbances = self.disturbance
+        else:
+            raise TypeError("disturbance must be type dict or float")
+     
+        # disturbances == perturbation, but perturbation is only a numpy array 
+        # order in elements of "perturbation" follows xb_vars. 
+        # Question to MM: does disturbances need to be dict?  
+        perturbation = np.zeros((len(xb_vars),),dtype=np.float64)    
+        i=0
+        for key,value in disturbances.items():
+            perturbation[i] = value
+            i+=1
+
+        disturbedKeys = []
+        for tup in xb_vars:
+            disturbedKeys.append("disturbed %s" % tup)
+
+        # Numpy array, dims: ("disturbedKeys","xb_bars"); "disturbedKeys" = "disturbed "+"xb_vars"
+        # Initialize to xb in rows:
+        aux_xb_disturbed = np.ones((len(xb_vars),len(xb_vars)),dtype=float)*\
+                                  xb.to_numpy().reshape(1,len(xb_vars))                                                       
+                                  
+        if self.useFactorInJac:
+            np.fill_diagonal(aux_xb_disturbed, \
+                            ( np.diag(aux_xb_disturbed) * perturbation ))
+        else:
+            np.fill_diagonal(aux_xb_disturbed, \
+                            ( np.diag(aux_xb_disturbed) + (xb_err.to_numpy()*perturbation) )) 
+         
+                          
+        self.xb_disturbed = pd.DataFrame(aux_xb_disturbed,
+            columns=xb_vars, index=disturbedKeys, dtype=float)                           
+
 
         # Calculate dy : the forward model for all the perturbed profiles
         # This is a single call for all the profiles at the same time;
         # at a difference with the for loop of the previous version (i.e. call per profile)
-         
-        aux_y_disturbed = self.forward(
-                self.xb_disturbed.T, **self.forwardKwArgsM)         
+
+
+
+        if self.forwardKwArgsM != None: # if forward arguments for multiple profiles are provided
         
-        # The output is keept in numpy format for convenience in calculating the Jacobian
+            aux_y_disturbed = self.forward(
+                    self.xb_disturbed.T, **self.forwardKwArgsM)   
+                    # Assemble y_disturbed Dataframe to keep consistency the format of the object.                
+            self.y_disturbed = pd.DataFrame(aux_y_disturbed.T,
+                columns=self.y_vars,
+                index=disturbedKeys,
+                dtype=np.float64
+            )             
+
+        else:                            # if forward arguments for multiple profiles are NOT provided   (previous version)          
+            self.y_disturbed = pd.DataFrame(
+                columns=self.y_vars,
+                index=disturbedKeys,
+                dtype=np.float64
+            )
+            for xb_dist in self.xb_disturbed.index: 
+                self.y_disturbed.loc[xb_dist] = self.forward(
+                    self.xb_disturbed.loc[xb_dist], **self.forwardKwArgs)
+                                
+            aux_y_disturbed = self.y_disturbed.to_numpy().T # This line only if not using the multiple calls
+            # from RTTOV but still using the broadcast Jacobian calculation            
         
-        # Assemble y_disturbed Dataframe to keep consistency the format of the object.                
-        self.y_disturbed = pd.DataFrame(aux_y_disturbed.T,
-            columns=self.y_vars,
-            index=disturbedKeys,
-            dtype=np.float64
-        )    
-                
+      
         # Calc Jacobian New:
         
         obs = y.to_numpy().reshape(1,len(self.y_vars)) # row vector containing observations (y)
         
         # Compute dx (i.e. distance to perturbed parameters)
-        # When using disturbance as a float (not dict), then this is a simple scalar-vector product
-        aux_dist = (self.disturbance * xb_err.to_numpy())  #This needs to be adapted to original code with disturbances dict TODO MARIO
+        
+        if self.useFactorInJac:
+            aux_dist = (xb.to_numpy()*(perturbation-1.0)) 
+        else:
+            aux_dist = (perturbation * xb_err.to_numpy())  
+
         
         # Check there are no zero distances:
+        
         assert np.sum((aux_dist==0)) == 0, 'S_a&s_b must not contain zeros on '\
                         'diagonal'
         
-        # If assertion pass, then compute the inverse of distance and reshape it into a column vector                
+        # If assertion pass, then compute the inverse of distance and reshape it into a column vector:  
+                      
         inv_dist = (1/aux_dist).reshape(len(xb_err.to_numpy()),1) # column vector
         
         # Use Numpy broadcasting rules to efficiently compute the Jacobian
+        
         aux_jacobian = (aux_y_disturbed.T - obs) * inv_dist # Numpy broadcast 
+        
+        # Assemble Jacobian Dataframe:
         
         jacobian = pd.DataFrame(aux_jacobian.T, 
                   index=self.y_vars, columns=disturbedKeys)
-
-# END NEW
 
 
         jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
