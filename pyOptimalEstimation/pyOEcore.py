@@ -149,6 +149,7 @@ class optimalEstimation(object):
                  y_obs,
                  S_y,
                  forward,
+                 rttovK=None,
                  x_truth=None,
                  b_vars=[],
                  b_p=[],
@@ -186,13 +187,16 @@ class optimalEstimation(object):
         self.y_obs = pd.Series(y_obs, index=self.y_vars)
         self.y_n = len(self.y_vars)
         self.forward = forward
+        self.rttovK = rttovK
         self.x_truth = pd.Series(x_truth, index=self.x_vars)
         try:
             # We want to save at least the name because the forward function
             # is removed for saving
             self.forward_name = forward.__name__
+            self.rttovK_name = rttovK.__name__ # this too?
         except AttributeError:
             self.forward_name = None
+            self.rttovK_name = None # this too?
         self.b_vars = list(b_vars)
         self.b_n = len(self.b_vars)
         assert self.b_n == len(b_p)
@@ -388,7 +392,7 @@ class optimalEstimation(object):
 
         # Numpy array, dims: ("disturbedKeys","xb_bars"); "disturbedKeys" = "disturbed "+"xb_vars"
         # Initialize to xb in rows:
-        aux_xb_disturbed = np.ones((len(xb_vars),len(xb_vars)),dtype=float)*\
+        aux_xb_disturbed = np.ones((len(xb_vars),len(xb_vars)),dtype=np.float64)*\
                                   xb.to_numpy().reshape(1,len(xb_vars))                                                       
                                   
         if self.useFactorInJac:
@@ -400,7 +404,7 @@ class optimalEstimation(object):
          
                           
         self.xb_disturbed = pd.DataFrame(aux_xb_disturbed,
-            columns=xb_vars, index=disturbedKeys, dtype=float)                           
+            columns=xb_vars, index=disturbedKeys, dtype=np.float64)                           
 
 
         # Calculate dy : the forward model for all the perturbed profiles
@@ -436,14 +440,14 @@ class optimalEstimation(object):
       
         # Calc Jacobian New:
         
-        obs = y.to_numpy().reshape(1,len(self.y_vars)) # row vector containing observations (y)
+        obs = y.to_numpy(dtype=np.float64).reshape(1,len(self.y_vars)) # row vector containing observations (y)
         
         # Compute dx (i.e. distance to perturbed parameters)
         
         if self.useFactorInJac:
-            aux_dist = (xb.to_numpy()*(perturbation-1.0)) 
+            aux_dist = (xb.to_numpy(dtype=np.float64)*(perturbation-1.0)) 
         else:
-            aux_dist = (perturbation * xb_err.to_numpy())  
+            aux_dist = (perturbation * xb_err.to_numpy(dtype=np.float64))  
 
         
         # Check there are no zero distances:
@@ -464,10 +468,100 @@ class optimalEstimation(object):
         jacobian = pd.DataFrame(aux_jacobian.T, 
                   index=self.y_vars, columns=disturbedKeys)
 
-
         jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
         jacobian_x = jacobian[["disturbed %s" % s for s in self.x_vars]]
         jacobian_b = jacobian[["disturbed %s" % s for s in self.b_vars]]
+
+        return jacobian_x, jacobian_b
+
+
+    def getJacobian_RTTOV(self, xb, y):
+        r'''
+        estimate Jacobian using the RTTOV K model and the specified disturbance
+
+        Parameters
+        ----------
+        xb  : pd.Series or list or np.ndarray
+          combination of state vector x and parameter vector b
+        y : pd.Series or list or np.ndarray
+          measurement vector for xb
+
+        Returns
+        -------
+        pd.DataFrame
+          Jacobian around x
+        pd.DataFrame
+          Jacobian around b
+        '''
+
+# Author: M. Echeverri, June 2021.
+        
+        xb_vars = self.x_vars + self.b_vars
+        # xb = pd.Series(xb, index=xb_vars, dtype=float)
+        xb_err = pd.concat((self.x_a_err, self.b_p_err))
+        # y = pd.Series(y, index=self.y_vars, dtype=float)
+
+        # If a factor is used to disturb xb, xb must not be zero.
+        assert not (self.useFactorInJac and np.any(xb == 0))
+
+        if type(self.disturbance) == float:
+            disturbances = dict() 
+            for key in xb_vars:
+                disturbances[key] = self.disturbance
+        elif type(self.disturbance) == dict:
+            disturbances = self.disturbance
+        else:
+            raise TypeError("disturbance must be type dict or float")
+     
+        # disturbances == perturbation, but perturbation is only a numpy array 
+        # order in elements of "perturbation" follows xb_vars. 
+        # Question to MM: does disturbances need to be dict?  
+        perturbation = np.zeros((len(xb_vars),),dtype=np.float64)    
+        i=0
+        for key,value in disturbances.items():
+            perturbation[i] = value
+            i+=1
+
+        disturbedKeys = []
+        for tup in xb_vars:
+            disturbedKeys.append("disturbed %s" % tup)
+
+        # Compute dx (i.e. distance to perturbed parameters)
+        
+        if self.useFactorInJac:
+            aux_dist = (xb.to_numpy()*(perturbation-1.0)) 
+        else:
+            aux_dist = (perturbation * xb_err.to_numpy()) 
+            
+        
+        # Compute Jacobian using RTTOV's core and rescale with desired dx
+        jac_numpy = (self.rttovK(
+                    xb, xb_err, self.y_vars, **self.forwardKwArgs)) #*\
+                    #xb_err.to_numpy(dtype=np.float64).reshape(1,len(xb_err.to_numpy()))
+                    #aux_dist.reshape(1,len(xb_err.to_numpy()))
+        
+        # Assemble  Jacobian Dataframe:
+        
+        jacobian = pd.DataFrame(jac_numpy, 
+                  index=self.y_vars, columns=disturbedKeys)
+
+        #print(jacobian)
+        #print(jac_numpy.dtype)
+        jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
+        jacobian_x = jacobian[["disturbed %s" % s for s in self.x_vars]]
+        jacobian_b = jacobian[["disturbed %s" % s for s in self.b_vars]]
+        
+        
+        
+        # to deprecate? (assertions are present in other parts of pyOpEst):
+        
+        self.xb_disturbed = pd.DataFrame(
+            columns=xb_vars, index=disturbedKeys, dtype=float)  
+        self.y_disturbed = pd.DataFrame(
+                columns=self.y_vars,
+                index=disturbedKeys,
+                dtype=np.float64
+            )
 
         return jacobian_x, jacobian_b
 
@@ -538,8 +632,27 @@ class optimalEstimation(object):
                       
             #startTimeJac_v1 = time.time()
             
-            self.K_i[i], self.K_b_i[i]  = self.getJacobian_v1(
-                pd.concat((self.x_i[i], self.b_p)), self.y_i[i])
+            if (self.rttovK != None): # then RTTOV's K model is used
+            
+                self.K_i[i], self.K_b_i[i]  = self.getJacobian_RTTOV(
+                    pd.concat((self.x_i[i], self.b_p)), self.y_i[i]) 
+                    
+                #K_i_aux, K_b_i_aux  = self.getJacobian_v1(
+                #    pd.concat((self.x_i[i], self.b_p)), self.y_i[i])     
+                #print('K_i:')                   
+                #print(self.K_i[i]) 
+                #print('K_b_i:')                   
+                #print(self.K_b_i[i])   
+                #print('K_i_aux:')                   
+                #print(K_i_aux)    
+                #print('K_b_i_aux:')                   
+                #print(K_b_i_aux)  
+                #time.sleep(3600)                                                                  
+            else:
+            
+                self.K_i[i], self.K_b_i[i]  = self.getJacobian_v1(
+                    pd.concat((self.x_i[i], self.b_p)), self.y_i[i])
+
                 
             #print("%.2f s , TimeJac_v1" % (time.time()-startTimeJac_v1))                        
             
