@@ -478,6 +478,7 @@ class optimalEstimation(object):
     def getJacobian_RTTOV(self, xb, y):
         r'''
         estimate Jacobian using the RTTOV K model and the specified disturbance
+        This method has external dependencies (RTTOV and some support routines)
 
         Parameters
         ----------
@@ -534,26 +535,25 @@ class optimalEstimation(object):
             aux_dist = (perturbation * xb_err.to_numpy()) 
             
         
-        # Compute Jacobian using RTTOV's core and rescale with desired dx
-        jac_numpy = (self.rttovK(
-                    xb, xb_err, self.y_vars, **self.forwardKwArgs)) #*\
-                    #xb_err.to_numpy(dtype=np.float64).reshape(1,len(xb_err.to_numpy()))
-                    #aux_dist.reshape(1,len(xb_err.to_numpy()))
+        # Compute Jacobian using RTTOV's core 
+        # self.disturbance is used only for transforming
+        # dy/dq into dy/dLog10q (see "mergeX_all" in support routines)
+        jac_numpy = self.rttovK(xb, self.disturbance, \
+                                self.y_vars, **self.forwardKwArgs) 
         
         # Assemble  Jacobian Dataframe:
         
         jacobian = pd.DataFrame(jac_numpy, 
                   index=self.y_vars, columns=disturbedKeys)
 
-        #print(jacobian)
-        #print(jac_numpy.dtype)
         jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
         jacobian_x = jacobian[["disturbed %s" % s for s in self.x_vars]]
         jacobian_b = jacobian[["disturbed %s" % s for s in self.b_vars]]
         
         
         
-        # to deprecate? (assertions are present in other parts of pyOpEst):
+        # to deprecate? (assertions are present in other parts of pyOpEst, 
+        #    so this is added here for compliance with those assertions):
         
         self.xb_disturbed = pd.DataFrame(
             columns=xb_vars, index=disturbedKeys, dtype=float)  
@@ -624,39 +624,16 @@ class optimalEstimation(object):
         self.y_i[0] = pd.Series(y, index=self.y_vars, dtype=float)
 
         for i in range(maxIter):
-
-            #startTimeJac = time.time()
-            #self.K_i[i], self.K_b_i[i] = self.getJacobian(
-            #    pd.concat((self.x_i[i], self.b_p)), self.y_i[i])
-            #print("%.2f s , TimeJac" % (time.time()-startTimeJac))
-                      
-            #startTimeJac_v1 = time.time()
             
             if (self.rttovK != None): # then RTTOV's K model is used
             
                 self.K_i[i], self.K_b_i[i]  = self.getJacobian_RTTOV(
                     pd.concat((self.x_i[i], self.b_p)), self.y_i[i]) 
-                    
-                #K_i_aux, K_b_i_aux  = self.getJacobian_v1(
-                #    pd.concat((self.x_i[i], self.b_p)), self.y_i[i])     
-                #print('K_i:')                   
-                #print(self.K_i[i]) 
-                #print('K_b_i:')                   
-                #print(self.K_b_i[i])   
-                #print('K_i_aux:')                   
-                #print(K_i_aux)    
-                #print('K_b_i_aux:')                   
-                #print(K_b_i_aux)  
-                #time.sleep(3600)                                                                  
+                                                                
             else:
             
                 self.K_i[i], self.K_b_i[i]  = self.getJacobian_v1(
                     pd.concat((self.x_i[i], self.b_p)), self.y_i[i])
-
-                
-            #print("%.2f s , TimeJac_v1" % (time.time()-startTimeJac_v1))                        
-            
-            #startTimeRest = time.time()
             
             if np.sum(self.S_b.shape) > 0:
                 S_ep_b = self.K_b_i[i].values.dot(
@@ -830,7 +807,6 @@ class optimalEstimation(object):
                               time.time()-startTime, i, self.dgf_i[i],
                               self.x_n, usingTest, self.d_i2[i]))
 
-            #print("%.2f s , TimeRest" % (time.time()-startTimeRest))
 
         self.K_i = self.K_i[:i+1]
         self.K_b_i = self.K_b_i[:i+1]
