@@ -544,7 +544,7 @@ class optimalEstimation(object):
         # Assemble  Jacobian Dataframe:
         
         jacobian = pd.DataFrame(jac_numpy, 
-                  index=self.y_vars, columns=disturbedKeys)
+                  index=self.y_vars, columns=disturbedKeys)      
 
         jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
         jacobian_x = jacobian[["disturbed %s" % s for s in self.x_vars]]
@@ -625,15 +625,21 @@ class optimalEstimation(object):
 
         for i in range(maxIter):
             
+            #startTimeJac = time.time()
+            
             if (self.rttovK != None): # then RTTOV's K model is used
             
                 self.K_i[i], self.K_b_i[i]  = self.getJacobian_RTTOV(
                     pd.concat((self.x_i[i], self.b_p)), self.y_i[i]) 
-                                                                
+                                                                                                                    
             else:
             
                 self.K_i[i], self.K_b_i[i]  = self.getJacobian_v1(
                     pd.concat((self.x_i[i], self.b_p)), self.y_i[i])
+            
+            #print("%.2f s , TimeJac" % (time.time()-startTimeJac))  
+            
+            #startTimeRest = time.time()
             
             if np.sum(self.S_b.shape) > 0:
                 S_ep_b = self.K_b_i[i].values.dot(
@@ -807,6 +813,7 @@ class optimalEstimation(object):
                               time.time()-startTime, i, self.dgf_i[i],
                               self.x_n, usingTest, self.d_i2[i]))
 
+            #print("%.2f s , TimeRest" % (time.time()-startTimeRest)) 
 
         self.K_i = self.K_i[:i+1]
         self.K_b_i = self.K_b_i[:i+1]
