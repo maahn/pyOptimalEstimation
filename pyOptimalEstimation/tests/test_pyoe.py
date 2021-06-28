@@ -181,4 +181,3 @@ class TestFullRetrieval(object):
         assert np.isclose(oe.trueLinearity,  0.039634853402863594)
         assert np.all(np.array(oe.linearity) < 1)
         assert np.all(chi2passed)
-        
