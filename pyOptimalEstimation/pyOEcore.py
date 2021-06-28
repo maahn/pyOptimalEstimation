@@ -51,7 +51,7 @@ class optimalEstimation(object):
         For forwarld models that can calculate the Jacobian internally (e.g.
         RTTIV), a call to estiamte the Jacobian can be added. Otherwise, the 
         Jacobian is estimated by pyOEusing the standard 'forward' call. The 
-        fucntion is expected as ``self.userJacobian(xb, self.disturbance, \
+        fucntion is expected as ``self.userJacobian(xb, self.pertubation, \
         self.y_vars, **self.forwardKwArgs): return jacobian``
         with xb = pd.concat((x,b)). Defaults to None
     x_truth : pd.Series or list or np.ndarray, optional
@@ -79,10 +79,13 @@ class optimalEstimation(object):
     x_upperLimit : dict, optional
         reset state vector x[key] to x_upperLimit[key] in case x_upperLimit is
         exceeded. Defaults to {}.
-    disturbance : float or dict of floats, optional
-        relative disturbance of statet vector x to estimate the Jacobian. Can
+    pertubation : float or dict of floats, optional
+        relative pertubation of statet vector x to estimate the Jacobian. Can
         be specified for every element of x seperately. Defaults to 0.1 of
         prior.
+    disturbance : float or dict of floats, optional
+        DEPRECATED: Identical to ´´pertubation´´ option. If both option are 
+        provided, ´´pertubation´´  is used instead. 
     useFactorInJac : bool,optional
         True if disturbance should be applied by multiplication, False if it
         should by applied by addition of fraction of prior. Defaults to False.
@@ -176,7 +179,8 @@ class optimalEstimation(object):
                  x_upperLimit={},
                  useFactorInJac=False,
                  gammaFactor=None,
-                 disturbance=0.1,
+                 pertubation=0.1,
+                 disturbance=None,
                  convergenceFactor=10,
                  convergenceTest='x',
                  forwardKwArgs={},
@@ -233,7 +237,11 @@ class optimalEstimation(object):
         self.x_upperLimit = x_upperLimit
         self.useFactorInJac = useFactorInJac
         self.gammaFactor = gammaFactor
-        self.disturbance = disturbance
+        if disturbance is not None:
+            self.pertubation = disturbance
+            print('Warning. The option "disturbance" is deprecated, use '
+                '"pertubation" instead')
+        self.pertubation = pertubation
         self.convergenceFactor = convergenceFactor
         self.convergenceTest = convergenceTest
 
@@ -263,7 +271,8 @@ class optimalEstimation(object):
         r'''
         Author: M. Echeverri, May 2021.
 
-        estimate Jacobian using the forward model and the specified disturbance
+        estimate Jacobian using the forward model and the specified 
+        pertubation
 
         Parameters
         ----------
@@ -286,46 +295,46 @@ class optimalEstimation(object):
         xb_err = pd.concat((self.x_a_err, self.b_p_err))
         # y = pd.Series(y, index=self.y_vars, dtype=float)
 
-        # If a factor is used to disturb xb, xb must not be zero.
+        # If a factor is used to perturb xb, xb must not be zero.
         assert not (self.useFactorInJac and np.any(xb == 0))
 
-        if type(self.disturbance) == float:
-            disturbances = dict() 
+        if type(self.pertubation) == float:
+            pertubations = dict() 
             for key in xb_vars:
-                disturbances[key] = self.disturbance
-        elif type(self.disturbance) == dict:
-            disturbances = self.disturbance
+                pertubations[key] = self.pertubation
+        elif type(self.pertubation) == dict:
+            pertubations = self.pertubation
         else:
-            raise TypeError("disturbance must be type dict or float")
+            raise TypeError("pertubation must be type dict or float")
      
-        # disturbances == perturbation, but perturbation is only a numpy array 
+        # pertubations == perturbation, but perturbation is only a numpy array 
         # order in elements of "perturbation" follows xb_vars. 
-        # Question to MM: does disturbances need to be dict?  
+        # Question to MM: does pertubations need to be dict?  
         perturbation = np.zeros((len(xb_vars),),dtype=np.float64)    
         i=0
-        for key,value in disturbances.items():
+        for key,value in pertubations.items():
             perturbation[i] = value
             i+=1
 
-        disturbedKeys = []
+        perturbedKeys = []
         for tup in xb_vars:
-            disturbedKeys.append("disturbed %s" % tup)
+            perturbedKeys.append("perturbed %s" % tup)
 
-        # Numpy array, dims: ("disturbedKeys","xb_bars"); "disturbedKeys" = "disturbed "+"xb_vars"
+        # Numpy array, dims: ("perturbedKeys","xb_bars"); "perturbedKeys" = "perturbed "+"xb_vars"
         # Initialize to xb in rows:
-        aux_xb_disturbed = np.ones((len(xb_vars),len(xb_vars)),dtype=np.float64)*\
+        aux_xb_perturbed = np.ones((len(xb_vars),len(xb_vars)),dtype=np.float64)*\
                                   xb.to_numpy().reshape(1,len(xb_vars))                                                       
                                   
         if self.useFactorInJac:
-            np.fill_diagonal(aux_xb_disturbed, \
-                            ( np.diag(aux_xb_disturbed) * perturbation ))
+            np.fill_diagonal(aux_xb_perturbed, \
+                            ( np.diag(aux_xb_perturbed) * perturbation ))
         else:
-            np.fill_diagonal(aux_xb_disturbed, \
-                            ( np.diag(aux_xb_disturbed) + (xb_err.to_numpy()*perturbation) )) 
+            np.fill_diagonal(aux_xb_perturbed, \
+                            ( np.diag(aux_xb_perturbed) + (xb_err.to_numpy()*perturbation) )) 
          
                           
-        self.xb_disturbed = pd.DataFrame(aux_xb_disturbed,
-            columns=xb_vars, index=disturbedKeys, dtype=np.float64)                           
+        self.xb_perturbed = pd.DataFrame(aux_xb_perturbed,
+            columns=xb_vars, index=perturbedKeys, dtype=np.float64)                           
 
 
         # Calculate dy : the forward model for all the perturbed profiles
@@ -340,26 +349,26 @@ class optimalEstimation(object):
             # is needed to include the fact that more than 1 profile will be simulated in the same call. Notice
             # that this DOES NOT mean that the "forward" model needs to be modified (this is not required)
 
-            aux_y_disturbed = self.forward(
-                    self.xb_disturbed.T, **self.multipleForwardKwArgs)   
-                    # Assemble y_disturbed Dataframe to keep consistency the format of the object.                
-            self.y_disturbed = pd.DataFrame(aux_y_disturbed.T,
+            aux_y_perturbed = self.forward(
+                    self.xb_perturbed.T, **self.multipleForwardKwArgs)   
+                    # Assemble y_perturbed Dataframe to keep consistency the format of the object.                
+            self.y_perturbed = pd.DataFrame(aux_y_perturbed.T,
                 columns=self.y_vars,
-                index=disturbedKeys,
+                index=perturbedKeys,
                 dtype=np.float64
             )             
 
         else:                            # if forward arguments for multiple profiles are NOT provided   (previous version)          
-            self.y_disturbed = pd.DataFrame(
+            self.y_perturbed = pd.DataFrame(
                 columns=self.y_vars,
-                index=disturbedKeys,
+                index=perturbedKeys,
                 dtype=np.float64
             )
-            for xb_dist in self.xb_disturbed.index: 
-                self.y_disturbed.loc[xb_dist] = self.forward(
-                    self.xb_disturbed.loc[xb_dist], **self.forwardKwArgs)
+            for xb_dist in self.xb_perturbed.index: 
+                self.y_perturbed.loc[xb_dist] = self.forward(
+                    self.xb_perturbed.loc[xb_dist], **self.forwardKwArgs)
                                 
-            aux_y_disturbed = self.y_disturbed.to_numpy().T # This line only if not using the multiple calls
+            aux_y_perturbed = self.y_perturbed.to_numpy().T # This line only if not using the multiple calls
             # from Forward model but still using the broadcast Jacobian calculation            
         
       
@@ -386,16 +395,16 @@ class optimalEstimation(object):
         
         # Use Numpy broadcasting rules to efficiently compute the Jacobian
         
-        aux_jacobian = (aux_y_disturbed.T - obs) * inv_dist # Numpy broadcast 
+        aux_jacobian = (aux_y_perturbed.T - obs) * inv_dist # Numpy broadcast 
         
         # Assemble Jacobian Dataframe:
         
         jacobian = pd.DataFrame(aux_jacobian.T, 
-                  index=self.y_vars, columns=disturbedKeys)
+                  index=self.y_vars, columns=perturbedKeys)
 
         jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
-        jacobian_x = jacobian[["disturbed %s" % s for s in self.x_vars]]
-        jacobian_b = jacobian[["disturbed %s" % s for s in self.b_vars]]
+        jacobian_x = jacobian[["perturbed %s" % s for s in self.x_vars]]
+        jacobian_b = jacobian[["perturbed %s" % s for s in self.b_vars]]
 
         return jacobian_x, jacobian_b
 
@@ -404,8 +413,8 @@ class optimalEstimation(object):
         r'''
         Author: M. Echeverri, June 2021.
 
-        estimate Jacobian using the external function provided by user and the specified disturbance
-        This method has external dependencies 
+        estimate Jacobian using the external function provided by user and 
+        the specified pertubation. This method has external dependencies 
 
         Parameters
         ----------
@@ -427,30 +436,30 @@ class optimalEstimation(object):
         xb_err = pd.concat((self.x_a_err, self.b_p_err))
         # y = pd.Series(y, index=self.y_vars, dtype=float)
 
-        # If a factor is used to disturb xb, xb must not be zero.
+        # If a factor is used to perturb xb, xb must not be zero.
         assert not (self.useFactorInJac and np.any(xb == 0))
 
-        if type(self.disturbance) == float:
-            disturbances = dict() 
+        if type(self.pertubation) == float:
+            pertubations = dict() 
             for key in xb_vars:
-                disturbances[key] = self.disturbance
-        elif type(self.disturbance) == dict:
-            disturbances = self.disturbance
+                pertubations[key] = self.pertubation
+        elif type(self.pertubation) == dict:
+            pertubations = self.pertubation
         else:
-            raise TypeError("disturbance must be type dict or float")
+            raise TypeError("pertubation must be type dict or float")
      
-        # disturbances == perturbation, but perturbation is only a numpy array 
+        # pertubations == perturbation, but perturbation is only a numpy array 
         # order in elements of "perturbation" follows xb_vars. 
-        # Question to MM: does disturbances need to be dict?  
+
         perturbation = np.zeros((len(xb_vars),),dtype=np.float64)    
         i=0
-        for key,value in disturbances.items():
+        for key,value in pertubations.items():
             perturbation[i] = value
             i+=1
 
-        disturbedKeys = []
+        perturbedKeys = []
         for tup in xb_vars:
-            disturbedKeys.append("disturbed %s" % tup)
+            perturbedKeys.append("perturbed %s" % tup)
 
         # Compute dx (i.e. distance to perturbed parameters)
         
@@ -462,28 +471,28 @@ class optimalEstimation(object):
         
         # Compute Jacobian using user's Jacobian function 
 
-        jac_numpy = self.userJacobian(xb, self.disturbance, \
+        jac_numpy = self.userJacobian(xb, self.pertubation, \
                                 self.y_vars, **self.forwardKwArgs) 
         
         # Assemble  Jacobian Dataframe:
         
         jacobian = pd.DataFrame(jac_numpy, 
-                  index=self.y_vars, columns=disturbedKeys)      
+                  index=self.y_vars, columns=perturbedKeys)      
 
         jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
-        jacobian_x = jacobian[["disturbed %s" % s for s in self.x_vars]]
-        jacobian_b = jacobian[["disturbed %s" % s for s in self.b_vars]]
+        jacobian_x = jacobian[["perturbed %s" % s for s in self.x_vars]]
+        jacobian_b = jacobian[["perturbed %s" % s for s in self.b_vars]]
         
         
         
         # to deprecate? (assertions are present in other parts of pyOpEst, 
         #    so this is added here for compliance with those assertions):
         
-        self.xb_disturbed = pd.DataFrame(
-            columns=xb_vars, index=disturbedKeys, dtype=float)  
-        self.y_disturbed = pd.DataFrame(
+        self.xb_perturbed = pd.DataFrame(
+            columns=xb_vars, index=perturbedKeys, dtype=float)  
+        self.y_perturbed = pd.DataFrame(
                 columns=self.y_vars,
-                index=disturbedKeys,
+                index=perturbedKeys,
                 dtype=np.float64
             )
 
@@ -577,12 +586,12 @@ class optimalEstimation(object):
             # S_ep inverted
             S_ep_inv = invertMatrix(self.S_ep_i[i])
 
-            assert np.all(self.y_disturbed.keys() == self.S_y.keys())
+            assert np.all(self.y_perturbed.keys() == self.S_y.keys())
             assert np.all(self.S_y.keys() == self.K_i[i].index)
             assert np.all(self.S_a.index == self.x_a.index)
             assert np.all(self.x_a.index.tolist(
-            )+self.b_p.index.tolist() == self.xb_disturbed.columns)
-            assert np.all(self.xb_disturbed.index.tolist(
+            )+self.b_p.index.tolist() == self.xb_perturbed.columns)
+            assert np.all(self.xb_perturbed.index.tolist(
             ) == self.K_i[i].columns.tolist()+self.K_b_i[i].columns.tolist())
 
             K = np.array(self.K_i[i])
