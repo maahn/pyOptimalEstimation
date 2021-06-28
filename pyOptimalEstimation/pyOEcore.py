@@ -2,9 +2,11 @@
 
 # pyOptimalEstimation
 
-# Copyright (C) 2014-20 Maximilian Maahn, CU Boulder
-# maximilian.maahn@colorado.edu
+# Copyright (C) 2014-21 Maximilian Maahn, Leipzig University
+# maximilian.maahn@uni-leipzig.de
 # https://github.com/maahn/pyOptimalEstimation
+
+# With contributions by M. Echeverri
 
 from __future__ import absolute_import
 from __future__ import division

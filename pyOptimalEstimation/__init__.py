@@ -2,8 +2,9 @@
 '''
 pyOptimalEstimation
 
-Copyright (C) 2014-15 Maximilian Maahn, IGMK (mmaahn_(AT)_meteo.uni-koeln.de)
-http://gop.meteo.uni-koeln.de/software
+# Copyright (C) 2014-21 Maximilian Maahn, Leipzig University
+# maximilian.maahn@uni-leipzig.de
+# https://github.com/maahn/pyOptimalEstimation
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

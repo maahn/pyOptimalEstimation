@@ -27,7 +27,7 @@ Please reference to our publication if you use the pyOptimalEstimation package
 Examples
 --------
 
-Please see pyOptimalEstimation/examples for a minimal working example. For more extensive, interactive examples, check out  https://github.com/maahn/pyOptimalEstimation_examples and our paper
+Please see pyOptimalEstimation/examples for a minimal working example. For more extensive, interactive examples, check out  https://github.com/maahn/pyOptimalEstimation_examples and our paper.
 
 
 Installation

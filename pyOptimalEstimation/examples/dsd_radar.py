@@ -6,8 +6,9 @@ Retrieve N0 and lambda of the drop size distribution N(D) = N0 * exp(-lambda*D)
 given a refletivity measurement and prior knowledge about N0 and lambda.
 Rayleigh scattering is assumed.
 
-Copyright (C) 2014-15 Maximilian Maahn, IGMK (mmaahn_(AT)_meteo.uni-koeln.de)
-http://gop.meteo.uni-koeln.de/software
+# Copyright (C) 2014-21 Maximilian Maahn, Leipzig University
+# maximilian.maahn@uni-leipzig.de
+# https://github.com/maahn/pyOptimalEstimation
 """
 from __future__ import absolute_import
 from __future__ import division
