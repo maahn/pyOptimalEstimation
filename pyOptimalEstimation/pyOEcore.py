@@ -86,8 +86,8 @@ class optimalEstimation(object):
         be specified for every element of x seperately. Defaults to 0.1 of
         prior.
     disturbance : float or dict of floats, optional
-        DEPRECATED: Identical to ´´pertubation´´ option. If both option are 
-        provided, ´´pertubation´´  is used instead. 
+        DEPRECATED: Identical to ``pertubation`` option. If both option are 
+        provided, ``pertubation``  is used instead. 
     useFactorInJac : bool,optional
         True if disturbance should be applied by multiplication, False if it
         should by applied by addition of fraction of prior. Defaults to False.
