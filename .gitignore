@@ -7,3 +7,4 @@ docs/_build
 pyOptimalEstimation/examples/*.png
 .pytest_cache
 .coverage
+.DS_Store

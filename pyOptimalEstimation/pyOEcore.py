@@ -26,7 +26,8 @@ import pandas as pd
 class optimalEstimation(object):
     r'''
     The core optimalEstimation class, which contains all required parameters.
-    See [1]_ for an extensive introduction into Optimal Estimation theory.
+    See [1]_ for an extensive introduction into Optimal Estimation theory, 
+    [2]_ discusses this library
 
     Parameters
     ----------
@@ -46,6 +47,13 @@ class optimalEstimation(object):
     forward : function
         forward model expected as ``forward(xb,**forwardKwArgs): return y``
         with xb = pd.concat((x,b)).
+    userJacobian : function, optional
+        For forwarld models that can calculate the Jacobian internally (e.g.
+        RTTIV), a call to estiamte the Jacobian can be added. Otherwise, the 
+        Jacobian is estimated by pyOEusing the standard 'forward' call. The 
+        fucntion is expected as ``self.userJacobian(xb, self.disturbance, \
+        self.y_vars, **self.forwardKwArgs): return jacobian``
+        with xb = pd.concat((x,b)). Defaults to None
     x_truth : pd.Series or list or np.ndarray, optional
         If truth of state x is known, it can added to the data object. If
         provided, the value will be used for the routines linearityTest and
@@ -59,7 +67,12 @@ class optimalEstimation(object):
     S_b : pd.DataFrame or list or np.ndarray
         covariance matrix of parameter b. Defaults to [[]].
     forwardKwArgs : dict,optional
-        additional keyword arguments for forward function.
+        additional keyword arguments for ``forward`` function.
+    multipleForwardKwArgs : dict,optional
+        additional keyword arguments for forward function in case multiple 
+        profiles should be provided to the forward operator at once. If not .
+        defined, ``forwardKwArgs`` is used instead and ``forward`` is called 
+        for every profile separately
     x_lowerLimit : dict, optional
         reset state vector x[key] to x_lowerLimit[key] in case x_lowerLimit is
         undercut. Defaults to {}.
@@ -74,7 +87,7 @@ class optimalEstimation(object):
         True if disturbance should be applied by multiplication, False if it
         should by applied by addition of fraction of prior. Defaults to False.
     gammaFactor : list of floats, optional
-        Use additional gamma parameter for retrieval, see [2]_.
+        Use additional gamma parameter for retrieval, see [3]_.
     convergenceTest : {'x', 'y', 'auto'}, optional
         Apply convergence test in x or y-space. If 'auto' is 
         selected, the test will be done in x-space if len(x) <= len(y) and in 
@@ -133,7 +146,12 @@ class optimalEstimation(object):
     Theory and Practice. World Scientific Publishing Company, 240 pp. 
     https://library.wmo.int/index.php?lvl=notice_display&id=12279.
 
-    .. [2] Turner, D. D., and U. Löhnert, 2014: Information Content and
+    .. [2] Maahn, M., D. D. Turner, U. Löhnert, D. J. Posselt, K. Ebell, G. 
+    G. Mace, and J. M. Comstock, 2020: Optimal Estimation Retrievals and Their
+    Uncertainties: What Every Atmospheric Scientist Should Know. Bull. Amer. 
+    Meteor. Soc., 101, E1512–E1523, https://doi.org/10.1175/BAMS-D-19-0027.1.
+
+    .. [3] Turner, D. D., and U. Löhnert, 2014: Information Content and
     Uncertainties in Thermodynamic Profiles and Liquid Cloud Properties
     Retrieved from the Ground-Based Atmospheric Emitted Radiance
     Interferometer (AERI). Journal of Applied Meteorology & Climatology, 53,
@@ -193,10 +211,13 @@ class optimalEstimation(object):
             # We want to save at least the name because the forward function
             # is removed for saving
             self.forward_name = forward.__name__
-            self.userJacobian_name = userJacobian.__name__ # this too?
         except AttributeError:
             self.forward_name = None
-            self.userJacobian_name = None # this too?
+        try:
+            self.userJacobian_name = userJacobian.__name__ # this too?
+        except AttributeError:
+            self.userJacobian_name = None 
+
         self.b_vars = list(b_vars)
         self.b_n = len(self.b_vars)
         assert self.b_n == len(b_p)
@@ -240,6 +261,8 @@ class optimalEstimation(object):
 
     def getJacobian(self, xb, y):
         r'''
+        Author: M. Echeverri, May 2021.
+
         estimate Jacobian using the forward model and the specified disturbance
 
         Parameters
@@ -257,26 +280,6 @@ class optimalEstimation(object):
           Jacobian around b
         '''
         
-
-# This version is automatically used if **self.multipleForwardKwArgs are provided
-
-# If **self.multipleForwardKwArgs is NOT provided, the Jacobian is computed looping
-# through the perturbed profiles (as previous version).
-
-# This version exploits the advantage of calling the forward model for several
-# atmospherical profiles at the same time. In doing so the code fully uses any
-# "under the hood" optimizations inside the "forward" function.
-
-# Extra function arguments are needed (**self.multipleForwardKwArgs) to pass by the multiple-profiles configuration:
-# for using a forward solver like CRTM or RTTOV, a specific instrument and profile configuration
-# is needed to include the fact that more than 1 profile will be simulated in the same call. Notice
-# that this DOES NOT mean that the "forward" model needs to be modified (this is not required)
-
-
-# This version also performs the "Jacobian calculation" step using Numpy's
-# broadcasting rules, which avoid the use of loops. 
-
-# Author: M. Echeverri, May 2021.
         
         xb_vars = self.x_vars + self.b_vars
         # xb = pd.Series(xb, index=xb_vars, dtype=float)
@@ -328,7 +331,15 @@ class optimalEstimation(object):
         # Calculate dy : the forward model for all the perturbed profiles
 
         if self.multipleForwardKwArgs != None: # if forward arguments for multiple profiles are provided
-        
+            # This version exploits the advantage of calling the forward model for several
+            # atmospherical profiles at the same time. In doing so the code fully uses any
+            # "under the hood" optimizations inside the "forward" function.
+
+            # Extra function arguments are needed (**self.multipleForwardKwArgs) to pass by the multiple-profiles configuration:
+            # for using a forward solver like CRTM or RTTOV, a specific instrument and profile configuration
+            # is needed to include the fact that more than 1 profile will be simulated in the same call. Notice
+            # that this DOES NOT mean that the "forward" model needs to be modified (this is not required)
+
             aux_y_disturbed = self.forward(
                     self.xb_disturbed.T, **self.multipleForwardKwArgs)   
                     # Assemble y_disturbed Dataframe to keep consistency the format of the object.                
@@ -391,6 +402,8 @@ class optimalEstimation(object):
 
     def getJacobian_external(self, xb, y):
         r'''
+        Author: M. Echeverri, June 2021.
+
         estimate Jacobian using the external function provided by user and the specified disturbance
         This method has external dependencies 
 
@@ -408,8 +421,6 @@ class optimalEstimation(object):
         pd.DataFrame
           Jacobian around b
         '''
-
-# Author: M. Echeverri, June 2021.
         
         xb_vars = self.x_vars + self.b_vars
         # xb = pd.Series(xb, index=xb_vars, dtype=float)
@@ -1167,8 +1178,10 @@ class optimalEstimation(object):
         None
         '''
         oeDict = deepcopy(self.__dict__)
-        if "forward" in oeDict.keys():
-            oeDict.pop("forward")
+        for k in list(oeDict.keys()):
+            if k in ['forward', 'userJacobian']:
+                oeDict.pop(k)
+
         np.save(fname, oeDict)
         return
 
