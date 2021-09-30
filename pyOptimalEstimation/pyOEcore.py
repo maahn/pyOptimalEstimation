@@ -51,9 +51,9 @@ class optimalEstimation(object):
         with xb = pd.concat((x,b)).
     userJacobian : function, optional
         For forwarld models that can calculate the Jacobian internally (e.g.
-        RTTIV), a call to estiamte the Jacobian can be added. Otherwise, the 
+        RTTOV), a call to estiamte the Jacobian can be added. Otherwise, the 
         Jacobian is estimated by pyOEusing the standard 'forward' call. The 
-        fucntion is expected as ``self.userJacobian(xb, self.pertubation, \
+        fucntion is expected as ``self.userJacobian(xb, self.perturbation, \
         self.y_vars, **self.forwardKwArgs): return jacobian``
         with xb = pd.concat((x,b)). Defaults to None
     x_truth : pd.Series or list or np.ndarray, optional
@@ -81,13 +81,13 @@ class optimalEstimation(object):
     x_upperLimit : dict, optional
         reset state vector x[key] to x_upperLimit[key] in case x_upperLimit is
         exceeded. Defaults to {}.
-    pertubation : float or dict of floats, optional
-        relative pertubation of statet vector x to estimate the Jacobian. Can
+    perturbation : float or dict of floats, optional
+        relative perturbation of statet vector x to estimate the Jacobian. Can
         be specified for every element of x seperately. Defaults to 0.1 of
         prior.
     disturbance : float or dict of floats, optional
-        DEPRECATED: Identical to ``pertubation`` option. If both option are 
-        provided, ``pertubation``  is used instead. 
+        DEPRECATED: Identical to ``perturbation`` option. If both option are 
+        provided, ``perturbation``  is used instead. 
     useFactorInJac : bool,optional
         True if disturbance should be applied by multiplication, False if it
         should by applied by addition of fraction of prior. Defaults to False.
@@ -101,6 +101,9 @@ class optimalEstimation(object):
     convergenceFactor : int, optional
         Factor by which the convergence criterion needs to be smaller than
         len(x) or len(y) 
+    verbose: bool, optional
+        True or not present: iteration, residual, etc. printed to screen during
+        normal operation. If False, it will turn off such notifications.     
 
     Attributes
     ----------
@@ -181,12 +184,13 @@ class optimalEstimation(object):
                  x_upperLimit={},
                  useFactorInJac=False,
                  gammaFactor=None,
-                 pertubation=0.1,
+                 perturbation=0.1,
                  disturbance=None,
                  convergenceFactor=10,
                  convergenceTest='x',
                  forwardKwArgs={},
-                 multipleForwardKwArgs=None
+                 multipleForwardKwArgs=None,
+                 verbose=None
                  ):
 
         # some initital tests
@@ -236,15 +240,16 @@ class optimalEstimation(object):
         )
         self.forwardKwArgs = forwardKwArgs
         self.multipleForwardKwArgs = multipleForwardKwArgs
+        self.verbose = verbose
         self.x_lowerLimit = x_lowerLimit
         self.x_upperLimit = x_upperLimit
         self.useFactorInJac = useFactorInJac
         self.gammaFactor = gammaFactor
         if disturbance is not None:
-            self.pertubation = disturbance
+            self.perturbation = disturbance
             print('Warning. The option "disturbance" is deprecated, use '
-                  '"pertubation" instead')
-        self.pertubation = pertubation
+                  '"perturbation" instead')
+        self.perturbation = perturbation
         self.convergenceFactor = convergenceFactor
         self.convergenceTest = convergenceTest
 
@@ -274,7 +279,7 @@ class optimalEstimation(object):
         Author: M. Echeverri, May 2021.
 
         estimate Jacobian using the forward model and the specified 
-        pertubation
+        perturbation
 
         Parameters
         ----------
@@ -299,21 +304,21 @@ class optimalEstimation(object):
         # If a factor is used to perturb xb, xb must not be zero.
         assert not (self.useFactorInJac and np.any(xb == 0))
 
-        if type(self.pertubation) == float:
-            pertubations = dict()
+        if type(self.perturbation) == float:
+            perturbations = dict()
             for key in xb_vars:
-                pertubations[key] = self.pertubation
-        elif type(self.pertubation) == dict:
-            pertubations = self.pertubation
+                perturbations[key] = self.perturbation
+        elif type(self.perturbation) == dict:
+            perturbations = self.perturbation
         else:
-            raise TypeError("pertubation must be type dict or float")
+            raise TypeError("perturbation must be type dict or float")
 
-        # pertubations == perturbation, but perturbation is only a numpy array
+        # perturbations == perturbation, but perturbation is only a numpy array
         # order in elements of "perturbation" follows xb_vars.
-        # Question to MM: does pertubations need to be dict?
+        # Question to MM: does perturbations need to be dict?
         perturbation = np.zeros((len(xb_vars),), dtype=np.float64)
         i = 0
-        for key, value in pertubations.items():
+        for key, value in perturbations.items():
             perturbation[i] = value
             i += 1
 
@@ -414,7 +419,7 @@ class optimalEstimation(object):
         Author: M. Echeverri, June 2021.
 
         estimate Jacobian using the external function provided by user and 
-        the specified pertubation. This method has external dependencies 
+        the specified perturbation. This method has external dependencies 
 
         Parameters
         ----------
@@ -439,21 +444,21 @@ class optimalEstimation(object):
         # If a factor is used to perturb xb, xb must not be zero.
         assert not (self.useFactorInJac and np.any(xb == 0))
 
-        if type(self.pertubation) == float:
-            pertubations = dict()
+        if type(self.perturbation) == float:
+            perturbations = dict()
             for key in xb_vars:
-                pertubations[key] = self.pertubation
-        elif type(self.pertubation) == dict:
-            pertubations = self.pertubation
+                perturbations[key] = self.perturbation
+        elif type(self.perturbation) == dict:
+            perturbations = self.perturbation
         else:
-            raise TypeError("pertubation must be type dict or float")
+            raise TypeError("perturbation must be type dict or float")
 
-        # pertubations == perturbation, but perturbation is only a numpy array
+        # perturbations == perturbation, but perturbation is only a numpy array
         # order in elements of "perturbation" follows xb_vars.
 
         perturbation = np.zeros((len(xb_vars),), dtype=np.float64)
         i = 0
-        for key, value in pertubations.items():
+        for key, value in perturbations.items():
             perturbation[i] = value
             i += 1
 
@@ -470,7 +475,7 @@ class optimalEstimation(object):
 
         # Compute Jacobian using user's Jacobian function
 
-        jac_numpy = self.userJacobian(xb, self.pertubation,
+        jac_numpy = self.userJacobian(xb, self.perturbation,
                                       self.y_vars, **self.forwardKwArgs)
 
         # Assemble  Jacobian Dataframe:
@@ -694,10 +699,17 @@ class optimalEstimation(object):
 
             # stop if we converged in the step before
             if self.converged:
-                print("%.2f s, iteration %i, degrees of freedom: %.2f of %i, "
-                      "done.  %.3f" % (
-                          time.time()-startTime, i, self.dgf_i[i], self.x_n,
-                          self.d_i2[i]))
+                if(self.verbose != None):
+                        if(self.verbose):
+                            print("%.2f s, iteration %i, degrees of freedom: %.2f of %i, "
+                                  "done.  %.3f" % (
+                                      time.time()-startTime, i, self.dgf_i[i], self.x_n,
+                                      self.d_i2[i]))          
+                else:
+                    print("%.2f s, iteration %i, degrees of freedom: %.2f of %i, "
+                                  "done.  %.3f" % (
+                                      time.time()-startTime, i, self.dgf_i[i], self.x_n,
+                                      self.d_i2[i]))                                         
                 break
 
             elif ((time.time()-startTime) > maxTime):
@@ -714,11 +726,19 @@ class optimalEstimation(object):
             if i != 0:
                 if (np.abs(self.d_i2[i]) < d_i2_limit) and (
                         self.gam_i[i] == 1) and (self.d_i2[i] != 0):
-                    print("%.2f s, iteration %i, degrees of freedom: %.2f of"
-                          " %i, converged (%s):  %.3f" % (
-                              time.time() -
-                              startTime, i, self.dgf_i[i], self.x_n,
-                              usingTest, self.d_i2[i]))
+                    if(self.verbose != None):
+                        if(self.verbose):    
+                            print("%.2f s, iteration %i, degrees of freedom: %.2f of"
+                                  " %i, converged (%s):  %.3f" % (
+                                     time.time() -
+                                      startTime, i, self.dgf_i[i], self.x_n,
+                                      usingTest, self.d_i2[i]))
+                    else:
+                        print("%.2f s, iteration %i, degrees of freedom: %.2f of"
+                                  " %i, converged (%s):  %.3f" % (
+                                     time.time() -
+                                      startTime, i, self.dgf_i[i], self.x_n,
+                                      usingTest, self.d_i2[i]))                  
                     self.converged = True
                 elif (i > 1) and (self.dgf_i[i] == 0):
                     print("%.2f s, iteration %i, degrees of freedom: %.2f of "
@@ -730,11 +750,19 @@ class optimalEstimation(object):
 
                     break
                 else:
-                    print("%.2f s, iteration %i, degrees of freedom:"
-                          " %.2f of %i, not converged (%s): "
-                          " %.3f" % (
-                              time.time()-startTime, i, self.dgf_i[i],
-                              self.x_n, usingTest, self.d_i2[i]))
+                    if(self.verbose != None):
+                        if(self.verbose):
+                            print("%.2f s, iteration %i, degrees of freedom:"
+                                  " %.2f of %i, not converged (%s): "
+                                  " %.3f" % (
+                                      time.time()-startTime, i, self.dgf_i[i],
+                                      self.x_n, usingTest, self.d_i2[i]))
+                    else:
+                        print("%.2f s, iteration %i, degrees of freedom:"
+                                  " %.2f of %i, not converged (%s): "
+                                  " %.3f" % (
+                                      time.time()-startTime, i, self.dgf_i[i],
+                                      self.x_n, usingTest, self.d_i2[i]))                  
 
             #print("%.2f s , TimeRest" % (time.time()-startTimeRest))
 
