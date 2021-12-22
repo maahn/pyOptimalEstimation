@@ -32,11 +32,10 @@ with io.open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 if __name__ == "__main__":
     setup(
         name='pyOptimalEstimation',
-        version='1.1',
+        use_scm_version=True,
         packages=['pyOptimalEstimation', ],
         license='GNU General Public License 3',
         author="Maximilian Maahn",
-        author_email="maximilian.maahn@colorado.edu",
         classifiers=[
             "Development Status :: 5 - Production/Stable",
             "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
@@ -47,6 +46,7 @@ if __name__ == "__main__":
             'Topic :: Scientific/Engineering',
         ],
         install_requires=['numpy', 'matplotlib', 'pandas', 'scipy'],
+        setup_requires=['setuptools_scm'],
         long_description=long_description,
         long_description_content_type='text/markdown',
         url='https://github.com/maahn/pyOptimalEstimation',

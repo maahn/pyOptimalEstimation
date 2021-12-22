@@ -4,7 +4,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/maahn/pyOptimalEstimation/badge.svg?branch=master)](https://coveralls.io/github/maahn/pyOptimalEstimation?branch=master)
 [![Downloads](https://pepy.tech/badge/pyoptimalestimation)](https://pepy.tech/project/pyoptimalestimation)
 
-# "pyOptimalEstimation" Package v1.1
+# "pyOptimalEstimation" Package
 
 Python package to solve an inverse problem using Optimal Estimation
 and an arbitrary Forward model following Rodgers, 2000.

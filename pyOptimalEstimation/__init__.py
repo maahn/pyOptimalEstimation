@@ -29,4 +29,10 @@ from __future__ import unicode_literals
 
 from .pyOEcore import optimalEstimation, optimalEstimation_loadResults, invertMatrix
 
-__version__ = '1.1'
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("package-name")
+except PackageNotFoundError:
+    # package is not installed
+    __version__ = "NOTINSTALLED"
