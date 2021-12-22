@@ -34,7 +34,9 @@ Maahn, M., D. D. Turner, U. Löhnert, D. J. Posselt, K. Ebell, G. G. Mace, and J
 
 ## Examples
 
-Annotated example applications are available at https://github.com/maahn/pyOptimalEstimation_examples.
+* A minimal working example can be found at https://github.com/maahn/pyOptimalEstimation/blob/master/pyOptimalEstimation/examples/dsd_radar.py
+* Two fullly annotated examples (microwave temperature/humidity retrieval & radar drops size distribution retrieval) are available at https://github.com/maahn/pyOptimalEstimation_examples. They can be run online using binder.
+* A retrieval for retrieving surface winds from satellites using RTTOV is available at https://github.com/deweatherman/RadEst
 
 ## API documentation
 
