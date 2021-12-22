@@ -32,7 +32,7 @@ from .pyOEcore import optimalEstimation, optimalEstimation_loadResults, invertMa
 from importlib.metadata import version, PackageNotFoundError
 
 try:
-    __version__ = version("package-name")
+    __version__ = version("pyOptimalEstimation")
 except PackageNotFoundError:
     # package is not installed
-    __version__ = "NOTINSTALLED"
+    pass
