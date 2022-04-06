@@ -216,7 +216,7 @@ class optimalEstimation(object):
         self.y_n = len(self.y_vars)
         self.forward = forward
         self.userJacobian = userJacobian
-        self.x_truth = pd.Series(x_truth, index=self.x_vars)
+        self.x_truth = pd.Series(x_truth, index=self.x_vars, dtype=np.float64)
 
         # We want to save at least the name because the forward function
         # is removed for saving
