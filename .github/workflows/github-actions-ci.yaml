@@ -1,4 +1,4 @@
-name: pyOptimalEstimation
+name: build test
 
 on: [push]
 
