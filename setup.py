@@ -44,7 +44,7 @@ if __name__ == "__main__":
             'Intended Audience :: Science/Research',
             'Topic :: Scientific/Engineering',
         ],
-        install_requires=['numpy', 'matplotlib', 'pandas', 'scipy'],
+        install_requires=['numpy', 'matplotlib', 'pandas', 'scipy', 'importlib-metadata'],
         setup_requires=['setuptools_scm'],
         long_description=long_description,
         long_description_content_type='text/markdown',
