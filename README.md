@@ -9,6 +9,8 @@
 Python package to solve an inverse problem using Optimal Estimation
 and an arbitrary Forward model following Rodgers, 2000.
 
+Tested with Python >=3.6. The last version supporting Python 2.7 was 1.1
+
 ## Installation
 
 Change to the folder containing the project and do 
