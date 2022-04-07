@@ -31,7 +31,7 @@ from .pyOEcore import optimalEstimation, optimalEstimation_loadResults, invertMa
 
 try:
     from importlib.metadata import version, PackageNotFoundError
-except ImportError:
+except ImportError: # for Pyton 3.6 and 3.7
     from importlib_metadata import version, PackageNotFoundError
 
 try:

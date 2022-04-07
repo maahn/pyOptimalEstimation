@@ -49,7 +49,11 @@ copyright = u'2021, M. Maahn'
 #
 
 
-from importlib.metadata import version
+try:
+    from importlib.metadata import version
+except ImportError: # for Pyton 3.6 and 3.7
+    from importlib_metadata import version
+
 release = version('pyOptimalEstimation')
 version = '.'.join(release.split('.')[:2])
 
