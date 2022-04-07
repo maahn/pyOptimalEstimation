@@ -1,6 +1,5 @@
 [![PyPI version](https://badge.fury.io/py/pyOptimalEstimation.svg)](https://badge.fury.io/py/pyOptimalEstimation)
 [![Documentation Status](https://readthedocs.org/projects/pyoptimalestimation/badge/?version=latest)](https://pyoptimalestimation.readthedocs.io/en/latest/?badge=latest)
-[![Build Status](https://www.travis-ci.org/maahn/pyOptimalEstimation.svg?branch=master)](https://www.travis-ci.org/maahn/pyOptimalEstimation)
 [![Coverage Status](https://coveralls.io/repos/github/maahn/pyOptimalEstimation/badge.svg?branch=master)](https://coveralls.io/github/maahn/pyOptimalEstimation?branch=master)
 [![Downloads](https://pepy.tech/badge/pyoptimalestimation)](https://pepy.tech/project/pyoptimalestimation)
 

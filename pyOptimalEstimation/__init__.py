@@ -29,7 +29,10 @@ from __future__ import unicode_literals
 
 from .pyOEcore import optimalEstimation, optimalEstimation_loadResults, invertMatrix
 
-from importlib.metadata import version, PackageNotFoundError
+try:
+    from importlib.metadata import version, PackageNotFoundError
+except ImportError:
+    from importlib_metadata import version, PackageNotFoundError
 
 try:
     __version__ = version("pyOptimalEstimation")
