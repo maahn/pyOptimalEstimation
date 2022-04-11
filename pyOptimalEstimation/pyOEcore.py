@@ -1571,7 +1571,7 @@ def _estimateChi2(S, z, atol=1e-5):
     dofs = np.sum(notNull)
     if dofs != len(notNull):
         print('Warning. Singular Matrix with rank %i instead of %i. '
-              '(This is typically save to ignore)       ' %
+              '(This is typically safe to ignore)       ' %
               (dofs, len(notNull)))
 
     # Rodgers eq. 12.1
