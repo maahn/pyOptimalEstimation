@@ -1477,7 +1477,7 @@ def invertMatrix(A, raise_error=True):
     try:
         eps = np.finfo(A.dtype).eps
     except:
-        A = A.astype(np.float)
+        A = A.astype(np.float64)
         eps = np.finfo(A.dtype).eps
 
     if np.linalg.cond(A) > 1/eps:
