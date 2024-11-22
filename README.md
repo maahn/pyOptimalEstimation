@@ -15,18 +15,9 @@ Tested with Python >=3.6. The last version supporting Python 2.7 was 1.1
 
 Change to the folder containing the project and do 
 ```
-  python setup.py install
+  python -m pip install .
 ```
-in the terminal. If you do not have root privileges, you can also do:
-```
-  python setup.py --user install
-```
-which will install pyOptimalEstimation in `userbase/lib/pythonX.Y/site-packages`
-or
-```
-  python setup.py install --home=~
-```
-which will install pyOptimalEstimation in `~/lib/python`.
+in the terminal. 
 
 ## Reference
 
