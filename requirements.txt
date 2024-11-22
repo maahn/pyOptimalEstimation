@@ -2,3 +2,5 @@ numpy
 matplotlib
 pandas
 scipy
+setuptools
+setuptools_scm
