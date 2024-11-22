@@ -22,17 +22,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 
-from .pyOEcore import optimalEstimation, optimalEstimation_loadResults, invertMatrix
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+from .pyOEcore import (invertMatrix, optimalEstimation,
+                       optimalEstimation_loadResults)
 
 try:
-    from importlib.metadata import version, PackageNotFoundError
+    from importlib.metadata import PackageNotFoundError, version
 except ImportError: # for Pyton 3.6 and 3.7
-    from importlib_metadata import version, PackageNotFoundError
+    from importlib_metadata import PackageNotFoundError, version
 
 try:
     __version__ = version("pyOptimalEstimation")

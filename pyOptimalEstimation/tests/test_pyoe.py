@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
+from copy import deepcopy
+
 import numpy as np
 import pandas as pn
-import scipy
-from copy import deepcopy
 import pyOptimalEstimation as pyOE
+import scipy
 
 
 def forward_simple(X):
@@ -14,6 +15,7 @@ def forward_simple(X):
     W = X['W']
     F = N * np.exp(-((z-R)/W)**2)
     return F
+
 
 
 class TestFullRetrieval(object):

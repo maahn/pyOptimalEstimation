@@ -21,10 +21,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
 
-from setuptools import setup
 import io
 # read the contents of your README file
 from os import path
+
+from setuptools import setup
+
 this_directory = path.abspath(path.dirname(__file__))
 with io.open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
@@ -50,3 +52,4 @@ if __name__ == "__main__":
         long_description_content_type='text/markdown',
         url='https://github.com/maahn/pyOptimalEstimation',
     )
+ 

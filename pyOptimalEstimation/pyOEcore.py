@@ -8,21 +8,20 @@
 
 # With contributions by M. Echeverri
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-import time
-from copy import deepcopy
-import warnings
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
+import time
+import warnings
+from copy import deepcopy
+
+import matplotlib.font_manager as font_manager
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import numpy as np
+import pandas as pd
 import scipy
 import scipy.stats
-import matplotlib.pyplot as plt
-import matplotlib.font_manager as font_manager
-import matplotlib.ticker as ticker
-import pandas as pd
 
 
 class optimalEstimation(object):
