@@ -4,7 +4,7 @@ requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
 
 [project]
 name = 'pyOptimalEstimation'
-dynamic = ["version"]
+dynamic = ["version", "readme"]
 license={text = 'GNU General Public License 3'}
 authors=[{name = "Maximilian Maahn"}]
 classifiers=[
@@ -21,3 +21,5 @@ Homepage = 'https://github.com/maahn/pyOptimalEstimation'
 
 [tool.setuptools_scm]
 
+[tool.setuptools.dynamic]
+readme = {file = ["README.md"]}
