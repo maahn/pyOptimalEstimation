@@ -2,4 +2,3 @@ numpy
 matplotlib
 pandas
 scipy
-importlib-metadata
