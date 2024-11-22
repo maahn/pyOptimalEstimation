@@ -47,7 +47,7 @@ if __name__ == "__main__":
             'Topic :: Scientific/Engineering',
         ],
         install_requires=['numpy', 'matplotlib', 'pandas', 'scipy', 'importlib-metadata'],
-        setup_requires=['setuptools_scm','setuptools_scm_git_archive'],
+        setup_requires=['setuptools_scm'],
         long_description=long_description,
         long_description_content_type='text/markdown',
         url='https://github.com/maahn/pyOptimalEstimation',
