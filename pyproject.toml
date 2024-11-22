@@ -1,11 +1,10 @@
-# pyproject.toml
 [build-system]
 requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
 
 [project]
 name = 'pyOptimalEstimation'
 dynamic = ["version", "readme"]
-license={text = 'GNU General Public License 3'}
+license = {file = "LICENSE.txt"}
 authors=[{name = "Maximilian Maahn"}]
 classifiers=[
     "Development Status :: 5 - Production/Stable",
