@@ -1,4 +1,3 @@
-
 :mod:`pyOptimalEstimation` Package
 ==================================
 
@@ -6,7 +5,7 @@
 .. toctree::
    :maxdepth: 3
 
-Python package to solve an inverse problem using Optimal Estimation and an arbritrary Forward model following Rodgers, 2000.
+Python package to solve an inverse problem using Optimal Estimation and an arbitrary Forward model following Rodgers, 2000.
 
 
 Download
@@ -57,4 +56,3 @@ API documentation
     :undoc-members:
     :show-inheritance:
     :member-order: bysource
-

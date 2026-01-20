@@ -3,7 +3,7 @@
 pyOptimalEstimation minimal working example
 
 Retrieve N0 and lambda of the drop size distribution N(D) = N0 * exp(-lambda*D)
-given a refletivity measurement and prior knowledge about N0 and lambda.
+given a reflectivity measurement and prior knowledge about N0 and lambda.
 Rayleigh scattering is assumed.
 
 # Copyright (C) 2014-21 Maximilian Maahn, Leipzig University

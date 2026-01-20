@@ -9,3 +9,4 @@ pyOptimalEstimation/examples/*.png
 .coverage
 .DS_Store
 .eggs
+.aider*

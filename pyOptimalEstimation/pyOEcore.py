@@ -44,26 +44,26 @@ class optimalEstimation(object):
         observed measurement vector y.
     S_y : pd.DataFrame or list or np.ndarray
         covariance matrix of measurement y. If there is no b vector, S_y
-        is sequal to S_e
+        is equal to S_e
     forward : function
         forward model expected as ``forward(xb,**forwardKwArgs): return y``
         with xb = pd.concat((x,b)).
     userJacobian : function, optional
-        For forwarld models that can calculate the Jacobian internally (e.g.
-        RTTOV), a call to estiamte the Jacobian can be added. Otherwise, the 
-        Jacobian is estimated by pyOEusing the standard 'forward' call. The 
-        fucntion is expected as ``self.userJacobian(xb, self.perturbation, \
+        For forward models that can calculate the Jacobian internally (e.g.
+        RTTOV), a call to estimate the Jacobian can be added. Otherwise, the 
+        Jacobian is estimated by pyOE using the standard 'forward' call. The 
+        function is expected as ``self.userJacobian(xb, self.perturbation, \
         self.y_vars, **self.forwardKwArgs): return jacobian``
         with xb = pd.concat((x,b)). Defaults to None
     x_truth : pd.Series or list or np.ndarray, optional
         If truth of state x is known, it can added to the data object. If
         provided, the value will be used for the routines linearityTest and
-        plotIterations, but _not_ by the retrieval itself. Defaults to None/
+        plotIterations, but _not_ by the retrieval itself. Defaults to None.
     b_vars : list of str, optional
         names of the elements of parameter vector b. Defaults to [].
     b_p : pd.Series or list or np.ndarray.
         parameter vector b.  defaults to []. Note that defining b_p makes
-        only sence if S_b != 0. Otherwise it is easier (and cheaper) to
+        only sense if S_b != 0. Otherwise it is easier (and cheaper) to
         hardcode b into the forward operator.
     S_b : pd.DataFrame or list or np.ndarray
         covariance matrix of parameter b. Defaults to [[]].
@@ -71,7 +71,7 @@ class optimalEstimation(object):
         additional keyword arguments for ``forward`` function.
     multipleForwardKwArgs : dict,optional
         additional keyword arguments for forward function in case multiple 
-        profiles should be provided to the forward operator at once. If not .
+        profiles should be provided to the forward operator at once. If not 
         defined, ``forwardKwArgs`` is used instead and ``forward`` is called 
         for every profile separately
     x_lowerLimit : dict, optional
@@ -81,15 +81,15 @@ class optimalEstimation(object):
         reset state vector x[key] to x_upperLimit[key] in case x_upperLimit is
         exceeded. Defaults to {}.
     perturbation : float or dict of floats, optional
-        relative perturbation of statet vector x to estimate the Jacobian. Can
-        be specified for every element of x seperately. Defaults to 0.1 of
+        relative perturbation of state vector x to estimate the Jacobian. Can
+        be specified for every element of x separately. Defaults to 0.1 of
         prior.
     disturbance : float or dict of floats, optional
-        DEPRECATED: Identical to ``perturbation`` option. If both option are 
-        provided, ``perturbation``  is used instead. 
+        DEPRECATED: Identical to ``perturbation`` option. If both options are 
+        provided, ``perturbation`` is used instead. 
     useFactorInJac : bool,optional
         True if disturbance should be applied by multiplication, False if it
-        should by applied by addition of fraction of prior. Defaults to False.
+        should be applied by addition of fraction of prior. Defaults to False.
     gammaFactor : list of floats, optional
         Use additional gamma parameter for retrieval, see [3]_.
     convergenceTest : {'x', 'y', 'auto'}, optional
@@ -107,7 +107,7 @@ class optimalEstimation(object):
     Attributes
     ----------
     converged : boolean
-      True if retriveal converged successfully
+      True if retrieval converged successfully
     x_op : pd.Series
       optimal state given the observations, i.e. retrieval solution
     y_op : pd.Series
@@ -192,7 +192,7 @@ class optimalEstimation(object):
                  verbose=None
                  ):
 
-        # some initital tests
+        # some initial tests
         assert np.linalg.matrix_rank(S_a) == S_a.shape[-1],\
             'S_a must not be singular'
         assert np.linalg.matrix_rank(S_y) == S_y.shape[-1],\
@@ -693,8 +693,8 @@ class optimalEstimation(object):
                 raise ValueError('Do not understand convergenceTest %s' %
                                  self.convergenceTest)
 
-            assert not self.d_i2[i] < 0, 'a negative convergence cirterion'
-            ' means someting has gotten really wrong'
+            assert not self.d_i2[i] < 0, 'a negative convergence criterion'
+            ' means something has gotten really wrong'
 
             # stop if we converged in the step before
             if self.converged:
@@ -741,7 +741,7 @@ class optimalEstimation(object):
                     self.converged = True
                 elif (i > 1) and (self.dgf_i[i] == 0):
                     print("%.2f s, iteration %i, degrees of freedom: %.2f of "
-                          "%i.degrees of freedom 0! STOP  %.3f" % (
+                          "%i. degrees of freedom 0! STOP  %.3f" % (
                               time.time() -
                               startTime, i, self.dgf_i[i], self.x_n,
                               self.d_i2[i]))
@@ -839,7 +839,7 @@ class optimalEstimation(object):
            against x_truth.
         atol : float (default 1e-5)
             The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose defualt value 
+            found that values should be than the numpy.isclose default value 
             of 1e-8.
 
         Returns
@@ -849,7 +849,7 @@ class optimalEstimation(object):
           size. Should be below 1 for all.
         self.trueLinearityChi2: float
            Chi2 value that model is moderately linear based on 'self.x_truth'.
-           Must be smaller than critical value to conclude thast model is
+           Must be smaller than critical value to conclude that model is
            linear.
         self.trueLinearityChi2Critical: float
            Corresponding critical Chi2 value. 
@@ -902,7 +902,7 @@ class optimalEstimation(object):
         A) optimal solution agrees with observation in Y space
         B) observation agrees with prior in Y space
         C) optimal solution agrees with prior in Y space
-        D) optimal solution agrees with priot in X space
+        D) optimal solution agrees with prior in X space
 
         Parameters
         ----------
@@ -915,7 +915,7 @@ class optimalEstimation(object):
         Pandas Series (dtype bool):
             True if test is passed
         Pandas Series (dtype float):
-            Chi2 value for tests. Must be smaler than critical value to pass
+            Chi2 value for tests. Must be smaller than critical value to pass
             tests.
         Pandas Series (dtype float):
             Critical Chi2 value for tests
@@ -978,17 +978,17 @@ class optimalEstimation(object):
            correct null hypothesis is rejected.
         atol : float (default 1e-5)
             The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose defualt value 
+            found that values should be than the numpy.isclose default value 
             of 1e-8.
         Returns
         -------
         chi2Passed : bool
-          True if chi² test passed, i.e. OE  retrieval agrees with
+          True if chi² test passed, i.e. OE retrieval agrees with
           measurements and null hypothesis is NOT rejected.
         chi2 : real
           chi² value
         chi2TestY : real
-          chi²  cutoff value with significance 'significance'
+          chi² cutoff value with significance 'significance'
 
         """
         assert self.converged
@@ -1018,17 +1018,17 @@ class optimalEstimation(object):
            correct null hypothesis is rejected.
         atol : float (default 1e-5)
             The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose defualt value 
+            found that values should be than the numpy.isclose default value 
             of 1e-8.
         Returns
         -------
         YObservationPrior : bool
-          True if chi² test passed, i.e. OE  retrieval agrees with
+          True if chi² test passed, i.e. OE retrieval agrees with
           measurements and null hypothesis is NOT rejected.
         YObservationPrior: real
           chi² value
         chi2TestY : real
-          chi²  cutoff value with significance 'significance'
+          chi² cutoff value with significance 'significance'
 
         """
 
@@ -1056,18 +1056,18 @@ class optimalEstimation(object):
            correct null hypothesis is rejected.
         atol : float (default 1e-5)
             The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose defualt value 
+            found that values should be than the numpy.isclose default value 
             of 1e-8.
 
         Returns
         -------
-        chi2Passe : bool
-          True if chi² test passed, i.e. OE  retrieval agrees with
+        chi2Passed : bool
+          True if chi² test passed, i.e. OE retrieval agrees with
           Prior and null hypothesis is NOT rejected.
         chi2: real
           chi² value
         chi2TestY : real
-          chi²  cutoff value with significance 'significance'
+          chi² cutoff value with significance 'significance'
 
         """
 
@@ -1085,7 +1085,7 @@ class optimalEstimation(object):
 
         chi, chi2TestY = _testChi2(Syd, delta_y, significance, atol)
 
-        #######  Alternative based on execise Rodgers 12.1 #######
+        #######  Alternative based on exercise Rodgers 12.1 #######
 
         # Se = y_cov.values
         # K = self.K_i[self.convI].values
@@ -1133,13 +1133,13 @@ class optimalEstimation(object):
            correct null hypothesis is rejected.
         atol : float (default 1e-5)
             The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose defualt value 
+            found that values should be than the numpy.isclose default value 
             of 1e-8.
 
         Returns
         -------
         chi2Passed : bool
-          True if chi² test passed, i.e. OE  retrieval agrees with
+          True if chi² test passed, i.e. OE retrieval agrees with
           Prior and null hypothesis is NOT rejected.
         chi2 : real
           chi² value
@@ -1160,7 +1160,7 @@ class optimalEstimation(object):
         Sxd = Sa.dot(K.T).dot(KSaKSep_inv).dot(K).dot(Sa)
         chi2, chi2TestX = _testChi2(Sxd, delta_x, significance, atol)
 
-        #######  Alternative based on execise Rodgers 12.1 #######
+        #######  Alternative based on exercise Rodgers 12.1 #######
 
         # Se = y_cov.values
         # K = self.K_i[self.convI].values
@@ -1262,7 +1262,7 @@ class optimalEstimation(object):
             ind = 0
 
         if self.converged:
-            fig.suptitle('Sucessfully converged. Convergence criterion: %.3g'
+            fig.suptitle('Successfully converged. Convergence criterion: %.3g'
                          ' Degrees of freedom: %.3g' % (d_i2[ind], dgf_i[ind]))
         else:
             fig.suptitle('Not converged. Convergence criterion: %.3g  Degrees'
@@ -1449,7 +1449,7 @@ def optimalEstimation_loadResults(fname, allow_pickle=True):
 
 def invertMatrix(A, raise_error=True):
     '''
-    Wrapper funtion for np.linalg.inv, because original function reports
+    Wrapper function for np.linalg.inv, because original function reports
     LinAlgError if nan in array for some numpy versions. We want that the
     retrieval is robust with respect to that. Also, checks for singular 
     matrices were added.
@@ -1553,7 +1553,7 @@ def _estimateChi2(S, z, atol=1e-5):
         Vector to test
         atol : float (default 1e-5)
             The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose defualt value 
+            found that values should be than the numpy.isclose default value 
             of 1e-8.
 
     Returns
@@ -1588,10 +1588,10 @@ def _testChi2(S, z, significance, atol=1e-5):
     z : {array}
         Vector to test
     significance : {float}
-        Significane level
+        Significance level
         atol : float (default 1e-5)
             The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose defualt value 
+            found that values should be than the numpy.isclose default value 
             of 1e-8.
 
     Returns
