@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''
+"""
 pyOptimalEstimation
 
 Copyright (C) 2014-19 Maximilian Maahn, CU Boulder
@@ -19,7 +19,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-'''
+"""
 import setuptools
 
 setuptools.setup()

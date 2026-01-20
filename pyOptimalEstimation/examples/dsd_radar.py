@@ -10,12 +10,10 @@ Rayleigh scattering is assumed.
 # maximilian.maahn@uni-leipzig.de
 # https://github.com/maahn/pyOptimalEstimation
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-import numpy as np
+from __future__ import absolute_import, division, print_function, unicode_literals
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pyOptimalEstimation as pyOE
 
 # Define the forward operator, accepts state vector X [N0,lam] as input, and
@@ -31,8 +29,8 @@ def forward(X, D=np.logspace(-4, -2, 50)):
     N0 = 10**N0log
     dD = np.gradient(D)
     N = N0 * np.exp(-lam * D**mu)
-    Z = 1e18 * np.sum(N*D**6*dD)
-    return [10*np.log10(Z)]
+    Z = 1e18 * np.sum(N * D**6 * dD)
+    return [10 * np.log10(Z)]
 
 
 # define names for X and Y
@@ -57,9 +55,8 @@ forwardKwArgs = {"D": np.logspace(-4, -2, 50)}
 
 # create optimal estimation object
 oe = pyOE.optimalEstimation(
-    x_vars, x_ap, x_cov, y_vars, y_obs, y_cov, forward,
-    forwardKwArgs=forwardKwArgs
-    )
+    x_vars, x_ap, x_cov, y_vars, y_obs, y_cov, forward, forwardKwArgs=forwardKwArgs
+)
 
 # run the retrieval
 oe.doRetrieval(maxIter=10, maxTime=10000000.0)

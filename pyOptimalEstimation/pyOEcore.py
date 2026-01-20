@@ -2,14 +2,13 @@
 
 # pyOptimalEstimation
 
-# Copyright (C) 2014-21 Maximilian Maahn, Leipzig University
+# Copyright (C) 2014-26 Maximilian Maahn, Leipzig University
 # maximilian.maahn@uni-leipzig.de
 # https://github.com/maahn/pyOptimalEstimation
 
 # With contributions by M. Echeverri
 
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import time
 import warnings
@@ -25,7 +24,7 @@ import scipy.stats
 
 
 class optimalEstimation(object):
-    r'''
+    r"""
     The core optimalEstimation class, which contains all required parameters.
     See [1]_ for an extensive introduction into Optimal Estimation theory, 
     [2]_ discusses this library
@@ -164,53 +163,47 @@ class optimalEstimation(object):
     Interferometer (AERI). Journal of Applied Meteorology & Climatology, 53,
     752–771, doi:10.1175/JAMC-D-13-0126.1.
 
-    '''
+    """
 
-    def __init__(self,
-                 x_vars,
-                 x_a,
-                 S_a,
-                 y_vars,
-                 y_obs,
-                 S_y,
-                 forward,
-                 userJacobian=None,
-                 x_truth=None,
-                 b_vars=[],
-                 b_p=[],
-                 S_b=[[]],
-                 x_lowerLimit={},
-                 x_upperLimit={},
-                 useFactorInJac=False,
-                 gammaFactor=None,
-                 perturbation=0.1,
-                 disturbance=None,
-                 convergenceFactor=10,
-                 convergenceTest='x',
-                 forwardKwArgs={},
-                 multipleForwardKwArgs=None,
-                 verbose=None
-                 ):
-
+    def __init__(
+        self,
+        x_vars,
+        x_a,
+        S_a,
+        y_vars,
+        y_obs,
+        S_y,
+        forward,
+        userJacobian=None,
+        x_truth=None,
+        b_vars=[],
+        b_p=[],
+        S_b=[[]],
+        x_lowerLimit={},
+        x_upperLimit={},
+        useFactorInJac=False,
+        gammaFactor=None,
+        perturbation=0.1,
+        disturbance=None,
+        convergenceFactor=10,
+        convergenceTest="x",
+        forwardKwArgs={},
+        multipleForwardKwArgs=None,
+        verbose=None,
+    ):
         # some initial tests
-        assert np.linalg.matrix_rank(S_a) == S_a.shape[-1],\
-            'S_a must not be singular'
-        assert np.linalg.matrix_rank(S_y) == S_y.shape[-1],\
-            'S_y must not be singular'
+        assert np.linalg.matrix_rank(S_a) == S_a.shape[-1], "S_a must not be singular"
+        assert np.linalg.matrix_rank(S_y) == S_y.shape[-1], "S_y must not be singular"
         for inVar in [x_a, S_a, S_y, y_obs]:
             assert not np.any(np.isnan(inVar))
 
         self.x_vars = list(x_vars)
         self.x_a = pd.Series(x_a, index=self.x_vars)
-        self.S_a = pd.DataFrame(
-            S_a, index=self.x_vars, columns=self.x_vars)
-        self.x_a_err = np.sqrt(
-            pd.Series(np.diag(self.S_a), index=self.x_vars)
-        )
+        self.S_a = pd.DataFrame(S_a, index=self.x_vars, columns=self.x_vars)
+        self.x_a_err = np.sqrt(pd.Series(np.diag(self.S_a), index=self.x_vars))
         self.x_n = len(self.x_vars)
         self.y_vars = list(y_vars)
-        self.S_y = pd.DataFrame(
-            S_y, index=self.y_vars, columns=self.y_vars)
+        self.S_y = pd.DataFrame(S_y, index=self.y_vars, columns=self.y_vars)
         self.y_obs = pd.Series(y_obs, index=self.y_vars)
         self.y_n = len(self.y_vars)
         self.forward = forward
@@ -224,7 +217,7 @@ class optimalEstimation(object):
         except AttributeError:
             self.forward_name = None
         try:
-            self.userJacobian_name = userJacobian.__name__  
+            self.userJacobian_name = userJacobian.__name__
         except AttributeError:
             self.userJacobian_name = None
 
@@ -232,11 +225,8 @@ class optimalEstimation(object):
         self.b_n = len(self.b_vars)
         assert self.b_n == len(b_p)
         self.b_p = pd.Series(b_p, index=self.b_vars, dtype=np.float64)
-        self.S_b = pd.DataFrame(
-            S_b, index=self.b_vars, columns=self.b_vars)
-        self.b_p_err = np.sqrt(
-            pd.Series(np.diag(self.S_b), index=self.b_vars)
-        )
+        self.S_b = pd.DataFrame(S_b, index=self.b_vars, columns=self.b_vars)
+        self.b_p_err = np.sqrt(pd.Series(np.diag(self.S_b), index=self.b_vars))
         self.forwardKwArgs = forwardKwArgs
         self.multipleForwardKwArgs = multipleForwardKwArgs
         self.verbose = verbose
@@ -246,8 +236,10 @@ class optimalEstimation(object):
         self.gammaFactor = gammaFactor
         if disturbance is not None:
             self.perturbation = disturbance
-            print('Warning. The option "disturbance" is deprecated, use '
-                  '"perturbation" instead')
+            print(
+                'Warning. The option "disturbance" is deprecated, use '
+                '"perturbation" instead'
+            )
         self.perturbation = perturbation
         self.convergenceFactor = convergenceFactor
         self.convergenceTest = convergenceTest
@@ -274,10 +266,10 @@ class optimalEstimation(object):
         return
 
     def getJacobian(self, xb, y):
-        r'''
+        r"""
         Author: M. Echeverri, May 2021.
 
-        estimate Jacobian using the forward model and the specified 
+        estimate Jacobian using the forward model and the specified
         perturbation
 
         Parameters
@@ -293,7 +285,7 @@ class optimalEstimation(object):
           Jacobian around x
         pd.DataFrame
           Jacobian around b
-        '''
+        """
 
         xb_vars = self.x_vars + self.b_vars
         # xb = pd.Series(xb, index=xb_vars, dtype=float)
@@ -327,22 +319,29 @@ class optimalEstimation(object):
 
         # Numpy array, dims: ("perturbedKeys","xb_bars"); "perturbedKeys" = "perturbed "+"xb_vars"
         # Initialize to xb in rows:
-        aux_xb_perturbed = np.ones((len(xb_vars), len(xb_vars)), dtype=np.float64) *\
-            xb.to_numpy().reshape(1, len(xb_vars))
+        aux_xb_perturbed = np.ones(
+            (len(xb_vars), len(xb_vars)), dtype=np.float64
+        ) * xb.to_numpy().reshape(1, len(xb_vars))
 
         if self.useFactorInJac:
-            np.fill_diagonal(aux_xb_perturbed,
-                             (np.diag(aux_xb_perturbed) * perturbation))
+            np.fill_diagonal(
+                aux_xb_perturbed, (np.diag(aux_xb_perturbed) * perturbation)
+            )
         else:
-            np.fill_diagonal(aux_xb_perturbed,
-                             (np.diag(aux_xb_perturbed) + (xb_err.to_numpy()*perturbation)))
+            np.fill_diagonal(
+                aux_xb_perturbed,
+                (np.diag(aux_xb_perturbed) + (xb_err.to_numpy() * perturbation)),
+            )
 
-        self.xb_perturbed = pd.DataFrame(aux_xb_perturbed,
-                                         columns=xb_vars, index=perturbedKeys, dtype=np.float64)
+        self.xb_perturbed = pd.DataFrame(
+            aux_xb_perturbed, columns=xb_vars, index=perturbedKeys, dtype=np.float64
+        )
 
         # Calculate dy : the forward model for all the perturbed profiles
 
-        if self.multipleForwardKwArgs != None:  # if forward arguments for multiple profiles are provided
+        if (
+            self.multipleForwardKwArgs != None
+        ):  # if forward arguments for multiple profiles are provided
             # This version exploits the advantage of calling the forward model for several
             # atmospherical profiles at the same time. In doing so the code fully uses any
             # "under the hood" optimizations inside the "forward" function.
@@ -353,24 +352,25 @@ class optimalEstimation(object):
             # that this DOES NOT mean that the "forward" model needs to be modified (this is not required)
 
             aux_y_perturbed = self.forward(
-                self.xb_perturbed.T, **self.multipleForwardKwArgs)
+                self.xb_perturbed.T, **self.multipleForwardKwArgs
+            )
             # Assemble y_perturbed Dataframe to keep consistency the format of the object.
-            self.y_perturbed = pd.DataFrame(aux_y_perturbed.T,
-                                            columns=self.y_vars,
-                                            index=perturbedKeys,
-                                            dtype=np.float64
-                                            )
+            self.y_perturbed = pd.DataFrame(
+                aux_y_perturbed.T,
+                columns=self.y_vars,
+                index=perturbedKeys,
+                dtype=np.float64,
+            )
 
         # if forward arguments for multiple profiles are NOT provided   (previous version)
         else:
             self.y_perturbed = pd.DataFrame(
-                columns=self.y_vars,
-                index=perturbedKeys,
-                dtype=np.float64
+                columns=self.y_vars, index=perturbedKeys, dtype=np.float64
             )
             for xb_dist in self.xb_perturbed.index:
                 self.y_perturbed.loc[xb_dist] = self.forward(
-                    self.xb_perturbed.loc[xb_dist], **self.forwardKwArgs)
+                    self.xb_perturbed.loc[xb_dist], **self.forwardKwArgs
+                )
 
             # This line only if not using the multiple calls
             aux_y_perturbed = self.y_perturbed.to_numpy().T
@@ -384,19 +384,20 @@ class optimalEstimation(object):
         # Compute dx (i.e. distance to perturbed parameters)
 
         if self.useFactorInJac:
-            aux_dist = (xb.to_numpy(dtype=np.float64)*(perturbation-1.0))
+            aux_dist = xb.to_numpy(dtype=np.float64) * (perturbation - 1.0)
         else:
-            aux_dist = (perturbation * xb_err.to_numpy(dtype=np.float64))
+            aux_dist = perturbation * xb_err.to_numpy(dtype=np.float64)
 
         # Check there are no zero distances:
 
-        assert np.sum((aux_dist == 0)) == 0, 'S_a&s_b must not contain zeros on '\
-            'diagonal'
+        assert np.sum((aux_dist == 0)) == 0, (
+            "S_a&s_b must not contain zeros on " "diagonal"
+        )
 
         # If assertion pass, then compute the inverse of distance and reshape it into a column vector:
 
         # column vector
-        inv_dist = (1/aux_dist).reshape(len(xb_err.to_numpy()), 1)
+        inv_dist = (1 / aux_dist).reshape(len(xb_err.to_numpy()), 1)
 
         # Use Numpy broadcasting rules to efficiently compute the Jacobian
 
@@ -404,21 +405,22 @@ class optimalEstimation(object):
 
         # Assemble Jacobian Dataframe:
 
-        jacobian = pd.DataFrame(aux_jacobian.T,
-                                index=self.y_vars, columns=perturbedKeys)
+        jacobian = pd.DataFrame(
+            aux_jacobian.T, index=self.y_vars, columns=perturbedKeys
+        )
 
-        jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
+        jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.0
         jacobian_x = jacobian[["perturbed %s" % s for s in self.x_vars]]
         jacobian_b = jacobian[["perturbed %s" % s for s in self.b_vars]]
 
         return jacobian_x, jacobian_b
 
     def getJacobian_external(self, xb, y):
-        r'''
+        r"""
         Author: M. Echeverri, June 2021.
 
-        estimate Jacobian using the external function provided by user and 
-        the specified perturbation. This method has external dependencies 
+        estimate Jacobian using the external function provided by user and
+        the specified perturbation. This method has external dependencies
 
         Parameters
         ----------
@@ -433,7 +435,7 @@ class optimalEstimation(object):
           Jacobian around x
         pd.DataFrame
           Jacobian around b
-        '''
+        """
 
         xb_vars = self.x_vars + self.b_vars
         # xb = pd.Series(xb, index=xb_vars, dtype=float)
@@ -468,21 +470,21 @@ class optimalEstimation(object):
         # Compute dx (i.e. distance to perturbed parameters)
 
         if self.useFactorInJac:
-            aux_dist = (xb.to_numpy()*(perturbation-1.0))
+            aux_dist = xb.to_numpy() * (perturbation - 1.0)
         else:
-            aux_dist = (perturbation * xb_err.to_numpy())
+            aux_dist = perturbation * xb_err.to_numpy()
 
         # Compute Jacobian using user's Jacobian function
 
-        jac_numpy = self.userJacobian(xb, self.perturbation,
-                                      self.y_vars, **self.forwardKwArgs)
+        jac_numpy = self.userJacobian(
+            xb, self.perturbation, self.y_vars, **self.forwardKwArgs
+        )
 
         # Assemble  Jacobian Dataframe:
 
-        jacobian = pd.DataFrame(jac_numpy,
-                                index=self.y_vars, columns=perturbedKeys)
+        jacobian = pd.DataFrame(jac_numpy, index=self.y_vars, columns=perturbedKeys)
 
-        jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.
+        jacobian[np.isnan(jacobian) | np.isinf(jacobian)] = 0.0
         jacobian_x = jacobian[["perturbed %s" % s for s in self.x_vars]]
         jacobian_b = jacobian[["perturbed %s" % s for s in self.b_vars]]
 
@@ -490,11 +492,10 @@ class optimalEstimation(object):
         #    so this is added here for compliance with those assertions):
 
         self.xb_perturbed = pd.DataFrame(
-            columns=xb_vars, index=perturbedKeys, dtype=float)
+            columns=xb_vars, index=perturbedKeys, dtype=float
+        )
         self.y_perturbed = pd.DataFrame(
-            columns=self.y_vars,
-            index=perturbedKeys,
-            dtype=np.float64
+            columns=self.y_vars, index=perturbedKeys, dtype=np.float64
         )
 
         return jacobian_x, jacobian_b
@@ -524,26 +525,26 @@ class optimalEstimation(object):
         self.converged = False
         startTime = time.time()
 
-        self.K_i = [0]*maxIter  # list of jacobians
-        self.K_b_i = [0]*maxIter  # list of jacobians for parameter vector
-        self.x_i = [0]*(maxIter+1)
-        self.y_i = [0]*(maxIter+1)
-        self.dgf_i = [0]*maxIter
-        self.H_i = [0]*maxIter  # Shannon information content
-        self.A_i = [0]*maxIter
-        self.d_i2 = [0]*maxIter  # convergence criteria
+        self.K_i = [0] * maxIter  # list of jacobians
+        self.K_b_i = [0] * maxIter  # list of jacobians for parameter vector
+        self.x_i = [0] * (maxIter + 1)
+        self.y_i = [0] * (maxIter + 1)
+        self.dgf_i = [0] * maxIter
+        self.H_i = [0] * maxIter  # Shannon information content
+        self.A_i = [0] * maxIter
+        self.d_i2 = [0] * maxIter  # convergence criteria
         self.S_ep_i = [0] * maxIter
         self.S_aposteriori_i = [0] * maxIter
         # self.Pxy_i = [0] *maxIter
-        self.gam_i = [1]*maxIter
+        self.gam_i = [1] * maxIter
 
         S_a = np.array(self.S_a)  # Covariance of prior estimate of x
-        assert np.all(S_a == S_a.T), 'S_a must be symmetric'
+        assert np.all(S_a == S_a.T), "S_a must be symmetric"
         S_a_inv = invertMatrix(S_a)  # S_a inverted
 
         if self.gammaFactor:
             assert len(self.gammaFactor) <= maxIter
-            self.gam_i[:len(self.gammaFactor)] = self.gammaFactor
+            self.gam_i[: len(self.gammaFactor)] = self.gammaFactor
 
         # treat first guess
         if x_0 is None:
@@ -557,20 +558,22 @@ class optimalEstimation(object):
         self.y_i[0] = pd.Series(y, index=self.y_vars, dtype=float)
 
         for i in range(maxIter):
-
-            if (self.userJacobian != None):  # then user's Jacobian function is used
-
+            if self.userJacobian != None:  # then user's Jacobian function is used
                 self.K_i[i], self.K_b_i[i] = self.getJacobian_external(
-                    pd.concat((self.x_i[i], self.b_p)), self.y_i[i])
+                    pd.concat((self.x_i[i], self.b_p)), self.y_i[i]
+                )
 
-            else:                           # uses method getJacobian
-
+            else:  # uses method getJacobian
                 self.K_i[i], self.K_b_i[i] = self.getJacobian(
-                    pd.concat((self.x_i[i], self.b_p)), self.y_i[i])
+                    pd.concat((self.x_i[i], self.b_p)), self.y_i[i]
+                )
 
             if np.sum(self.S_b.shape) > 0:
-                S_ep_b = self.K_b_i[i].values.dot(
-                    self.S_b.values).dot(self.K_b_i[i].values.T)
+                S_ep_b = (
+                    self.K_b_i[i]
+                    .values.dot(self.S_b.values)
+                    .dot(self.K_b_i[i].values.T)
+                )
             else:
                 S_ep_b = 0
             # S_epsilon Covariance of measurement noise including parameter
@@ -578,10 +581,10 @@ class optimalEstimation(object):
             self.S_ep_i[i] = self.S_y.values + S_ep_b
 
             # make sure S_y and S_ep are symmetric
-            assert np.all(self.S_y.values == self.S_y.values.T), \
-                'S_y must be symmetric'
-            assert np.isclose(self.S_ep_i[i], self.S_ep_i[i].T).all(), \
-                'S_ep must be symmetric'
+            assert np.all(self.S_y.values == self.S_y.values.T), "S_y must be symmetric"
+            assert np.isclose(
+                self.S_ep_i[i], self.S_ep_i[i].T
+            ).all(), "S_ep must be symmetric"
 
             # S_ep inverted
             S_ep_inv = invertMatrix(self.S_ep_i[i])
@@ -589,133 +592,152 @@ class optimalEstimation(object):
             assert np.all(self.y_perturbed.keys() == self.S_y.keys())
             assert np.all(self.S_y.keys() == self.K_i[i].index)
             assert np.all(self.S_a.index == self.x_a.index)
-            assert np.all(self.x_a.index.tolist(
-            )+self.b_p.index.tolist() == self.xb_perturbed.columns)
-            assert np.all(self.xb_perturbed.index.tolist(
-            ) == self.K_i[i].columns.tolist()+self.K_b_i[i].columns.tolist())
+            assert np.all(
+                self.x_a.index.tolist() + self.b_p.index.tolist()
+                == self.xb_perturbed.columns
+            )
+            assert np.all(
+                self.xb_perturbed.index.tolist()
+                == self.K_i[i].columns.tolist() + self.K_b_i[i].columns.tolist()
+            )
 
             K = np.array(self.K_i[i])
 
             # reformulated using Turner and Löhnert 2013:
-            B = (self.gam_i[i] * S_a_inv) + \
-                K.T.dot(S_ep_inv.dot(K))  # eq 3
+            B = (self.gam_i[i] * S_a_inv) + K.T.dot(S_ep_inv.dot(K))  # eq 3
             B_inv = invertMatrix(B)
             self.S_aposteriori_i[i] = B_inv.dot(
-                (self.gam_i[i]**2 * S_a_inv) + K.T.dot(S_ep_inv.dot(K))
-            ).dot(B_inv)  # eq2
+                (self.gam_i[i] ** 2 * S_a_inv) + K.T.dot(S_ep_inv.dot(K))
+            ).dot(
+                B_inv
+            )  # eq2
 
             self.S_aposteriori_i[i] = pd.DataFrame(
-                self.S_aposteriori_i[i],
-                index=self.x_a.index,
-                columns=self.x_a.index
+                self.S_aposteriori_i[i], index=self.x_a.index, columns=self.x_a.index
             )
             G = B_inv.dot(K.T.dot(S_ep_inv))
             self.A_i[i] = G.dot(K)  # eq 4
 
             # estimate next x
-            self.x_i[i+1] = self.x_a +\
-                B_inv.dot(
-                K.T.dot(S_ep_inv.dot(self.y_obs - self.y_i[i] +
-                                     K.dot(self.x_i[i] - self.x_a))))  # eq 1
+            self.x_i[i + 1] = self.x_a + B_inv.dot(
+                K.T.dot(
+                    S_ep_inv.dot(
+                        self.y_obs - self.y_i[i] + K.dot(self.x_i[i] - self.x_a)
+                    )
+                )
+            )  # eq 1
 
             # estimate next y
-            xb_i1 = pd.concat((self.x_i[i+1], self.b_p))
+            xb_i1 = pd.concat((self.x_i[i + 1], self.b_p))
             y = self.forward(xb_i1, **self.forwardKwArgs)
-            self.y_i[i+1] = pd.Series(y, index=self.y_vars, dtype=float)
+            self.y_i[i + 1] = pd.Series(y, index=self.y_vars, dtype=float)
 
             self.dgf_i[i] = np.trace(self.A_i[i])
             # eq. 2.80 Rodgers
-            self.H_i[i] = -0.5 * \
-                np.log(np.linalg.det(np.identity(self.x_n) - self.A_i[i]))
+            self.H_i[i] = -0.5 * np.log(
+                np.linalg.det(np.identity(self.x_n) - self.A_i[i])
+            )
 
             # check whether i+1 is valid
             for jj, xKey in enumerate(self.x_vars):
                 if (xKey in self.x_lowerLimit.keys()) and (
-                        self.x_i[i+1].iloc[jj] < self.x_lowerLimit[xKey]):
-                    print("#"*60)
-                    print("reset due to x_lowerLimit: %s from %f to %f in "
-                          "iteration %d" % (
-                              xKey,
-                              self.x_i[i+1].iloc[jj],
-                              self.x_a.iloc[jj], i
-                          ))
-                    self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
+                    self.x_i[i + 1].iloc[jj] < self.x_lowerLimit[xKey]
+                ):
+                    print("#" * 60)
+                    print(
+                        "reset due to x_lowerLimit: %s from %f to %f in "
+                        "iteration %d"
+                        % (xKey, self.x_i[i + 1].iloc[jj], self.x_a.iloc[jj], i)
+                    )
+                    self.x_i[i + 1].iloc[jj] = self.x_a.iloc[jj]
                 if (xKey in self.x_upperLimit.keys()) and (
-                        self.x_i[i+1].iloc[jj] > self.x_upperLimit[xKey]):
-                    print("#"*60)
-                    print("reset due to x_upperLimit: %s from %f to %f in "
-                          "iteration %d" % (
-                              xKey,
-                              self.x_i[i+1].iloc[jj],
-                              self.x_a.iloc[jj], i
-                          ))
-                    self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
-                if np.isnan(self.x_i[i+1].iloc[jj]):
-                    print("#"*60)
-                    print("reset due to nan: %s from %f to %f in iteration "
-                          "%d" % (
-                              xKey,
-                              self.x_i[i+1].iloc[jj],
-                              self.x_a.iloc[jj], i
-                          ))
-                    self.x_i[i+1].iloc[jj] = self.x_a.iloc[jj]
+                    self.x_i[i + 1].iloc[jj] > self.x_upperLimit[xKey]
+                ):
+                    print("#" * 60)
+                    print(
+                        "reset due to x_upperLimit: %s from %f to %f in "
+                        "iteration %d"
+                        % (xKey, self.x_i[i + 1].iloc[jj], self.x_a.iloc[jj], i)
+                    )
+                    self.x_i[i + 1].iloc[jj] = self.x_a.iloc[jj]
+                if np.isnan(self.x_i[i + 1].iloc[jj]):
+                    print("#" * 60)
+                    print(
+                        "reset due to nan: %s from %f to %f in iteration "
+                        "%d" % (xKey, self.x_i[i + 1].iloc[jj], self.x_a.iloc[jj], i)
+                    )
+                    self.x_i[i + 1].iloc[jj] = self.x_a.iloc[jj]
 
             # test in x space for len(y) > len(x)
-            if (
-                (self.convergenceTest == 'x')
-                or
-                ((self.convergenceTest == 'auto') and (self.x_n <= self.y_n))
+            if (self.convergenceTest == "x") or (
+                (self.convergenceTest == "auto") and (self.x_n <= self.y_n)
             ):
                 # convergence criterion eq 5.29 Rodgers 2000
-                dx = self.x_i[i] - self.x_i[i+1]
-                self.d_i2[i] = dx.T.dot(invertMatrix(
-                    self.S_aposteriori_i[i])).dot(dx)
-                d_i2_limit = self.x_n/float(self.convergenceFactor)
-                usingTest = 'x-space'
+                dx = self.x_i[i] - self.x_i[i + 1]
+                self.d_i2[i] = dx.T.dot(invertMatrix(self.S_aposteriori_i[i])).dot(dx)
+                d_i2_limit = self.x_n / float(self.convergenceFactor)
+                usingTest = "x-space"
             # test in y space for for len(y) < len(x)
-            elif (
-                (self.convergenceTest == 'y')
-                or
-                (self.convergenceTest == 'auto')
-            ):
+            elif (self.convergenceTest == "y") or (self.convergenceTest == "auto"):
                 # convergence criterion eqs 5.27 &  5.33 Rodgers 2000
-                dy = self.y_i[i+1] - self.y_i[i]
+                dy = self.y_i[i + 1] - self.y_i[i]
                 KSaKSep = K.dot(S_a).dot(K.T) + self.S_ep_i[i]
                 KSaKSep_inv = invertMatrix(KSaKSep)
 
                 S_deyd = self.S_ep_i[i].dot(KSaKSep_inv).dot(self.S_ep_i[i])
 
-                self.d_i2[i] = dy.T.dot(invertMatrix(
-                    S_deyd)).dot(dy)
-                d_i2_limit = self.y_n/float(self.convergenceFactor)
-                usingTest = 'y-space'
+                self.d_i2[i] = dy.T.dot(invertMatrix(S_deyd)).dot(dy)
+                d_i2_limit = self.y_n / float(self.convergenceFactor)
+                usingTest = "y-space"
             else:
-                raise ValueError('Do not understand convergenceTest %s' %
-                                 self.convergenceTest)
+                raise ValueError(
+                    "Do not understand convergenceTest %s" % self.convergenceTest
+                )
 
-            assert not self.d_i2[i] < 0, 'a negative convergence criterion'
-            ' means something has gotten really wrong'
+            assert not self.d_i2[i] < 0, "a negative convergence criterion"
+            " means something has gotten really wrong"
 
             # stop if we converged in the step before
             if self.converged:
-                if(self.verbose != None):
-                        if(self.verbose):
-                            print("%.2f s, iteration %i, degrees of freedom: %.2f of %i, "
-                                  "done.  %.3f" % (
-                                      time.time()-startTime, i, self.dgf_i[i], self.x_n,
-                                      self.d_i2[i]))          
+                if self.verbose != None:
+                    if self.verbose:
+                        print(
+                            "%.2f s, iteration %i, degrees of freedom: %.2f of %i, "
+                            "done.  %.3f"
+                            % (
+                                time.time() - startTime,
+                                i,
+                                self.dgf_i[i],
+                                self.x_n,
+                                self.d_i2[i],
+                            )
+                        )
                 else:
-                    print("%.2f s, iteration %i, degrees of freedom: %.2f of %i, "
-                                  "done.  %.3f" % (
-                                      time.time()-startTime, i, self.dgf_i[i], self.x_n,
-                                      self.d_i2[i]))                                         
+                    print(
+                        "%.2f s, iteration %i, degrees of freedom: %.2f of %i, "
+                        "done.  %.3f"
+                        % (
+                            time.time() - startTime,
+                            i,
+                            self.dgf_i[i],
+                            self.x_n,
+                            self.d_i2[i],
+                        )
+                    )
                 break
 
-            elif ((time.time()-startTime) > maxTime):
-                print("%.2f s, iteration %i, degrees of freedom: %.2f of %i."
-                      " maximum Time exceeded! STOP  %.3f" % (
-                          time.time()-startTime, i, self.dgf_i[i], self.x_n,
-                          self.d_i2[i]))
+            elif (time.time() - startTime) > maxTime:
+                print(
+                    "%.2f s, iteration %i, degrees of freedom: %.2f of %i."
+                    " maximum Time exceeded! STOP  %.3f"
+                    % (
+                        time.time() - startTime,
+                        i,
+                        self.dgf_i[i],
+                        self.x_n,
+                        self.d_i2[i],
+                    )
+                )
 
                 self.converged = False
 
@@ -723,61 +745,100 @@ class optimalEstimation(object):
 
             # calculate the convergence criteria
             if i != 0:
-                if (np.abs(self.d_i2[i]) < d_i2_limit) and (
-                        self.gam_i[i] == 1) and (self.d_i2[i] != 0):
-                    if(self.verbose != None):
-                        if(self.verbose):    
-                            print("%.2f s, iteration %i, degrees of freedom: %.2f of"
-                                  " %i, converged (%s):  %.3f" % (
-                                     time.time() -
-                                      startTime, i, self.dgf_i[i], self.x_n,
-                                      usingTest, self.d_i2[i]))
+                if (
+                    (np.abs(self.d_i2[i]) < d_i2_limit)
+                    and (self.gam_i[i] == 1)
+                    and (self.d_i2[i] != 0)
+                ):
+                    if self.verbose != None:
+                        if self.verbose:
+                            print(
+                                "%.2f s, iteration %i, degrees of freedom: %.2f of"
+                                " %i, converged (%s):  %.3f"
+                                % (
+                                    time.time() - startTime,
+                                    i,
+                                    self.dgf_i[i],
+                                    self.x_n,
+                                    usingTest,
+                                    self.d_i2[i],
+                                )
+                            )
                     else:
-                        print("%.2f s, iteration %i, degrees of freedom: %.2f of"
-                                  " %i, converged (%s):  %.3f" % (
-                                     time.time() -
-                                      startTime, i, self.dgf_i[i], self.x_n,
-                                      usingTest, self.d_i2[i]))                  
+                        print(
+                            "%.2f s, iteration %i, degrees of freedom: %.2f of"
+                            " %i, converged (%s):  %.3f"
+                            % (
+                                time.time() - startTime,
+                                i,
+                                self.dgf_i[i],
+                                self.x_n,
+                                usingTest,
+                                self.d_i2[i],
+                            )
+                        )
                     self.converged = True
                 elif (i > 1) and (self.dgf_i[i] == 0):
-                    print("%.2f s, iteration %i, degrees of freedom: %.2f of "
-                          "%i. degrees of freedom 0! STOP  %.3f" % (
-                              time.time() -
-                              startTime, i, self.dgf_i[i], self.x_n,
-                              self.d_i2[i]))
+                    print(
+                        "%.2f s, iteration %i, degrees of freedom: %.2f of "
+                        "%i. degrees of freedom 0! STOP  %.3f"
+                        % (
+                            time.time() - startTime,
+                            i,
+                            self.dgf_i[i],
+                            self.x_n,
+                            self.d_i2[i],
+                        )
+                    )
                     self.converged = False
 
                     break
                 else:
-                    if(self.verbose != None):
-                        if(self.verbose):
-                            print("%.2f s, iteration %i, degrees of freedom:"
-                                  " %.2f of %i, not converged (%s): "
-                                  " %.3f" % (
-                                      time.time()-startTime, i, self.dgf_i[i],
-                                      self.x_n, usingTest, self.d_i2[i]))
+                    if self.verbose != None:
+                        if self.verbose:
+                            print(
+                                "%.2f s, iteration %i, degrees of freedom:"
+                                " %.2f of %i, not converged (%s): "
+                                " %.3f"
+                                % (
+                                    time.time() - startTime,
+                                    i,
+                                    self.dgf_i[i],
+                                    self.x_n,
+                                    usingTest,
+                                    self.d_i2[i],
+                                )
+                            )
                     else:
-                        print("%.2f s, iteration %i, degrees of freedom:"
-                                  " %.2f of %i, not converged (%s): "
-                                  " %.3f" % (
-                                      time.time()-startTime, i, self.dgf_i[i],
-                                      self.x_n, usingTest, self.d_i2[i]))                  
+                        print(
+                            "%.2f s, iteration %i, degrees of freedom:"
+                            " %.2f of %i, not converged (%s): "
+                            " %.3f"
+                            % (
+                                time.time() - startTime,
+                                i,
+                                self.dgf_i[i],
+                                self.x_n,
+                                usingTest,
+                                self.d_i2[i],
+                            )
+                        )
 
-            #print("%.2f s , TimeRest" % (time.time()-startTimeRest))
+            # print("%.2f s , TimeRest" % (time.time()-startTimeRest))
 
-        self.K_i = self.K_i[:i+1]
-        self.K_b_i = self.K_b_i[:i+1]
-        self.x_i = self.x_i[:i+2]
-        self.y_i = self.y_i[:i+2]
-        self.dgf_i = self.dgf_i[:i+1]
-        self.A_i = self.A_i[:i+1]
-        self.H_i = self.H_i[:i+1]
-        self.d_i2 = self.d_i2[:i+1]
-        self.S_ep_i = self.S_ep_i[:i+1]
+        self.K_i = self.K_i[: i + 1]
+        self.K_b_i = self.K_b_i[: i + 1]
+        self.x_i = self.x_i[: i + 2]
+        self.y_i = self.y_i[: i + 2]
+        self.dgf_i = self.dgf_i[: i + 1]
+        self.A_i = self.A_i[: i + 1]
+        self.H_i = self.H_i[: i + 1]
+        self.d_i2 = self.d_i2[: i + 1]
+        self.S_ep_i = self.S_ep_i[: i + 1]
 
-        self.S_aposteriori_i = self.S_aposteriori_i[:i+1]
+        self.S_aposteriori_i = self.S_aposteriori_i[: i + 1]
 
-        self.gam_i = self.gam_i[:i+1]
+        self.gam_i = self.gam_i[: i + 1]
         if self.converged:
             self.convI = i
 
@@ -785,13 +846,10 @@ class optimalEstimation(object):
             self.y_op = self.y_i[i]
             self.S_op = self.S_aposteriori_i[i]
             self.x_op_err = np.sqrt(
-                pd.Series(np.diag(
-                    self.S_aposteriori_i[self.convI]), index=self.x_vars)
+                pd.Series(np.diag(self.S_aposteriori_i[self.convI]), index=self.x_vars)
             )
             self.dgf = self.dgf_i[i]
-            self.dgf_x = pd.Series(
-                np.diag(self.A_i[i]), index=self.x_vars
-            )
+            self.dgf_x = pd.Series(np.diag(self.A_i[i]), index=self.x_vars)
 
         else:
             self.convI = -9999
@@ -806,21 +864,17 @@ class optimalEstimation(object):
 
     @property
     def y_a(self):
-        '''
+        """
         Estimate the observations corresponding to the prior.
-        '''
+        """
         if self._y_a is None:
             xb_a = pd.concat((self.x_a, self.b_p))
-            self._y_a = pd.Series(self.forward(xb_a, **self.forwardKwArgs),
-                                  index=self.y_vars)
+            self._y_a = pd.Series(
+                self.forward(xb_a, **self.forwardKwArgs), index=self.y_vars
+            )
         return self._y_a
 
-    def linearityTest(
-        self,
-        maxErrorPatterns=10,
-        significance=0.05,
-        atol=1e-5
-    ):
+    def linearityTest(self, maxErrorPatterns=10, significance=0.05, atol=1e-5):
         """
         test whether the solution is moderately linear following chapter
         5.1 of Rodgers 2000.
@@ -835,26 +889,26 @@ class optimalEstimation(object):
         all.
         significance  : real, optional
           significance level, defaults to 0.05, i.e. probability is 5% that
-           correct null hypothesis is rejected. Only used when testing 
+           correct null hypothesis is rejected. Only used when testing
            against x_truth.
         atol : float (default 1e-5)
-            The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose default value 
+            The absolute tolerance for comparing eigen values to zero. We
+            found that values should be than the numpy.isclose default value
             of 1e-8.
 
         Returns
         -------
         self.linearity: float
-          ratio of error due to linearization to measurement error sorted by 
+          ratio of error due to linearization to measurement error sorted by
           size. Should be below 1 for all.
         self.trueLinearityChi2: float
            Chi2 value that model is moderately linear based on 'self.x_truth'.
            Must be smaller than critical value to conclude that model is
            linear.
         self.trueLinearityChi2Critical: float
-           Corresponding critical Chi2 value. 
+           Corresponding critical Chi2 value.
         """
-        self.linearity = np.zeros(self.x_n)*np.nan
+        self.linearity = np.zeros(self.x_n) * np.nan
         self.trueLinearityChi2 = np.nan
         self.trueLinearityChi2Critical = np.nan
 
@@ -867,38 +921,44 @@ class optimalEstimation(object):
         if np.any(lamb < 0):
             print(
                 "found negative eigenvalues of S_aposteriori_i, "
-                " S_aposteriori_i not semipositive definite!")
+                " S_aposteriori_i not semipositive definite!"
+            )
             return self.linearity, self.trueLinearity
         error_pattern = lamb**0.5 * II
         for hh in range(self.x_n):
-            x_hat = self.x_i[self.convI] + \
-                error_pattern[:, hh]  # estimated truth
+            x_hat = self.x_i[self.convI] + error_pattern[:, hh]  # estimated truth
             xb_hat = pd.concat((x_hat, self.b_p))
             y_hat = self.forward(xb_hat, **self.forwardKwArgs)
-            del_y = (y_hat - self.y_i[self.convI] - self.K_i[self.convI].dot(
-                (x_hat - self.x_i[self.convI]).values))
+            del_y = (
+                y_hat
+                - self.y_i[self.convI]
+                - self.K_i[self.convI].dot((x_hat - self.x_i[self.convI]).values)
+            )
             self.linearity[hh] = del_y.T.dot(S_ep_inv).dot(del_y)
 
-        self.linearity = sorted(
-            self.linearity, reverse=True)[slice(None, maxErrorPatterns)]
+        self.linearity = sorted(self.linearity, reverse=True)[
+            slice(None, maxErrorPatterns)
+        ]
 
         if self.x_truth is not None:
             xb_truth = pd.concat((self.x_truth, self.b_p))
             y_truth = self.forward(xb_truth, **self.forwardKwArgs)
-            del_y = (y_truth - self.y_i[self.convI] - self.K_i[self.convI].dot(
-                (self.x_truth - self.x_i[self.convI]).values))
+            del_y = (
+                y_truth
+                - self.y_i[self.convI]
+                - self.K_i[self.convI].dot((self.x_truth - self.x_i[self.convI]).values)
+            )
             self.trueLinearity = del_y.T.dot(S_ep_inv).dot(del_y)
 
             res = _testChi2(self.S_y.values, del_y, significance, atol)
             self.trueLinearityChi2, self.trueLinearityChi2Critical = res
 
-        return self.linearity, self.trueLinearityChi2, \
-            self.trueLinearityChi2Critical
+        return self.linearity, self.trueLinearityChi2, self.trueLinearityChi2Critical
 
     def chiSquareTest(self, significance=0.05):
-        '''
+        """
 
-        test with significance level 'significance' whether 
+        test with significance level 'significance' whether
         A) optimal solution agrees with observation in Y space
         B) observation agrees with prior in Y space
         C) optimal solution agrees with prior in Y space
@@ -919,17 +979,20 @@ class optimalEstimation(object):
             tests.
         Pandas Series (dtype float):
             Critical Chi2 value for tests
-        '''
-        chi2names = pd.Index([
-            'Y_Optimal_vs_Observation',
-            'Y_Observation_vs_Prior',
-            'Y_Optimal_vs_Prior',
-            'X_Optimal_vs_Prior',
-        ], name='chi2test')
+        """
+        chi2names = pd.Index(
+            [
+                "Y_Optimal_vs_Observation",
+                "Y_Observation_vs_Prior",
+                "Y_Optimal_vs_Prior",
+                "X_Optimal_vs_Prior",
+            ],
+            name="chi2test",
+        )
 
         chi2Cols = [
-            'chi2value',
-            'chi2critical',
+            "chi2value",
+            "chi2critical",
         ]
 
         if not self.converged:
@@ -938,33 +1001,33 @@ class optimalEstimation(object):
                 np.zeros((4, 2)),
                 index=chi2names,
                 columns=chi2Cols,
-            )*np.nan
+            ) * np.nan
         else:
             YOptimalObservation = self.chiSquareTestYOptimalObservation(
-                significance=significance)
+                significance=significance
+            )
             YObservationPrior = self.chiSquareTestYObservationPrior(
-                significance=significance)
-            YOptimalPrior = self.chiSquareTestYOptimalPrior(
-                significance=significance)
-            XOptimalPrior = self.chiSquareTestXOptimalPrior(
-                significance=significance)
+                significance=significance
+            )
+            YOptimalPrior = self.chiSquareTestYOptimalPrior(significance=significance)
+            XOptimalPrior = self.chiSquareTestXOptimalPrior(significance=significance)
 
             self.chi2Results = pd.DataFrame(
-                np.array([
-                    YOptimalObservation,
-                    YObservationPrior,
-                    YOptimalPrior,
-                    XOptimalPrior,
-                ]),
+                np.array(
+                    [
+                        YOptimalObservation,
+                        YObservationPrior,
+                        YOptimalPrior,
+                        XOptimalPrior,
+                    ]
+                ),
                 index=chi2names,
                 columns=chi2Cols,
             )
 
-        passed = self.chi2Results['chi2value'] < self.\
-            chi2Results['chi2critical']
+        passed = self.chi2Results["chi2value"] < self.chi2Results["chi2critical"]
 
-        return passed, self.chi2Results['chi2value'], \
-            self.chi2Results['chi2critical']
+        return passed, self.chi2Results["chi2value"], self.chi2Results["chi2critical"]
 
     def chiSquareTestYOptimalObservation(self, significance=0.05, atol=1e-5):
         """
@@ -977,8 +1040,8 @@ class optimalEstimation(object):
           significance level, defaults to 0.05, i.e. probability is 5% that
            correct null hypothesis is rejected.
         atol : float (default 1e-5)
-            The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose default value 
+            The absolute tolerance for comparing eigen values to zero. We
+            found that values should be than the numpy.isclose default value
             of 1e-8.
         Returns
         -------
@@ -1017,8 +1080,8 @@ class optimalEstimation(object):
           significance level, defaults to 0.05, i.e. probability is 5% that
            correct null hypothesis is rejected.
         atol : float (default 1e-5)
-            The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose default value 
+            The absolute tolerance for comparing eigen values to zero. We
+            found that values should be than the numpy.isclose default value
             of 1e-8.
         Returns
         -------
@@ -1055,8 +1118,8 @@ class optimalEstimation(object):
           significance level, defaults to 0.05, i.e. probability is 5% that
            correct null hypothesis is rejected.
         atol : float (default 1e-5)
-            The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose default value 
+            The absolute tolerance for comparing eigen values to zero. We
+            found that values should be than the numpy.isclose default value
             of 1e-8.
 
         Returns
@@ -1132,8 +1195,8 @@ class optimalEstimation(object):
           significance level, defaults to 0.05, i.e. probability is 5% that
            correct null hypothesis is rejected.
         atol : float (default 1e-5)
-            The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose default value 
+            The absolute tolerance for comparing eigen values to zero. We
+            found that values should be than the numpy.isclose default value
             of 1e-8.
 
         Returns
@@ -1196,7 +1259,7 @@ class optimalEstimation(object):
         return chi2, chi2TestX
 
     def saveResults(self, fname):
-        r'''
+        r"""
         Helper function to save a pyOptimalEstimation object. The forward
         operator is removed from the pyOptimalEstimation object before saving.
 
@@ -1208,10 +1271,10 @@ class optimalEstimation(object):
         Returns
         -------
         None
-        '''
+        """
         oeDict = deepcopy(self.__dict__)
         for k in list(oeDict.keys()):
-            if k in ['forward', 'userJacobian']:
+            if k in ["forward", "userJacobian"]:
                 oeDict.pop(k)
 
         np.save(fname, oeDict)
@@ -1219,12 +1282,12 @@ class optimalEstimation(object):
 
     def plotIterations(
         self,
-        cmap='viridis',
+        cmap="viridis",
         figsize=(8, 10),
         legend=True,
-        mode='ratio',
+        mode="ratio",
     ):
-        r'''
+        r"""
         Plot the retrieval results using 4 panels: (1) iterations of x
         (normalized to self.x_truth or x[0]), (2) iterations of y (normalized
         to y_obs), (3) iterations of degrees of freedom, (4) iterations of
@@ -1241,16 +1304,15 @@ class optimalEstimation(object):
         legend : bool, optional
           Add legend for X and Y (defualt True)
         mode : str, optional
-          plot 'ratio' or 'difference' to truth/prior/measurements 
+          plot 'ratio' or 'difference' to truth/prior/measurements
           (defualt: ratio)
 
         Returns
         -------
         matplotlib figure object
           The created figure.
-        '''
-        fig, [sp1, sp2, sp3, sp4] = plt.subplots(figsize=figsize, nrows=4,
-                                                 sharex=True)
+        """
+        fig, [sp1, sp2, sp3, sp4] = plt.subplots(figsize=figsize, nrows=4, sharex=True)
         d_i2 = np.array(self.d_i2)
         dgf_i = np.array(self.dgf_i)
 
@@ -1262,35 +1324,38 @@ class optimalEstimation(object):
             ind = 0
 
         if self.converged:
-            fig.suptitle('Successfully converged. Convergence criterion: %.3g'
-                         ' Degrees of freedom: %.3g' % (d_i2[ind], dgf_i[ind]))
+            fig.suptitle(
+                "Successfully converged. Convergence criterion: %.3g"
+                " Degrees of freedom: %.3g" % (d_i2[ind], dgf_i[ind])
+            )
         else:
-            fig.suptitle('Not converged. Convergence criterion: %.3g  Degrees'
-                         ' of freedom: %.3g' % (d_i2[ind], dgf_i[ind]))
+            fig.suptitle(
+                "Not converged. Convergence criterion: %.3g  Degrees"
+                " of freedom: %.3g" % (d_i2[ind], dgf_i[ind])
+            )
 
         colors = _niceColors(len(self.x_i[0].keys()), cmap=cmap)
         for kk, key in enumerate(self.x_i[0].keys()):
             xs = list()
             for xx in self.x_i[:-1]:
                 xs.append(xx[key])
-            if mode == 'ratio':
+            if mode == "ratio":
                 if self.x_truth is not None:
                     xs.append(self.x_truth[key])
                     xs = np.array(xs) / self.x_truth[key]
                 else:
                     xs = np.array(xs) / xs[0]
-            elif mode == 'difference':
+            elif mode == "difference":
                 if self.x_truth is not None:
                     xs.append(self.x_truth[key])
                     xs = np.array(xs) - self.x_truth[key]
                 else:
                     xs = np.array(xs) - xs[0]
             else:
-                ValueError('Do not understand mode %s' % mode)
+                ValueError("Do not understand mode %s" % mode)
             sp1.plot(xs, label=key, color=colors[kk])
         if legend:
-            leg = sp1.legend(loc="best",
-                             prop=font_manager.FontProperties(size=8))
+            leg = sp1.legend(loc="best", prop=font_manager.FontProperties(size=8))
             leg.get_frame().set_alpha(0.5)
         # sp1.set_xlabel("iteration")
         if self.x_truth is not None:
@@ -1299,7 +1364,7 @@ class optimalEstimation(object):
             sp1.set_ylabel("x-values\n(%s to prior)" % mode)
 
         sp1.axvline(ind, color="k")
-        sp1.axvline(len(self.x_i)-2, ls=":", color="k")
+        sp1.axvline(len(self.x_i) - 2, ls=":", color="k")
 
         colors = _niceColors(len(self.y_i[0].keys()), cmap=cmap)
         for kk, key in enumerate(self.y_i[0].keys()):
@@ -1307,30 +1372,29 @@ class optimalEstimation(object):
             for yy in self.y_i:
                 ys.append(yy[key])
             ys.append(self.y_obs[key])
-            if mode == 'ratio':
+            if mode == "ratio":
                 ys = np.array(ys) / ys[-1]
-            elif mode == 'difference':
+            elif mode == "difference":
                 ys = np.array(ys) - ys[-1]
             sp2.plot(ys, label=key, color=colors[kk])
         if legend:
-            leg = sp2.legend(loc="best",
-                             prop=font_manager.FontProperties(size=8))
+            leg = sp2.legend(loc="best", prop=font_manager.FontProperties(size=8))
             leg.get_frame().set_alpha(0.5)
         sp2.set_ylabel("y-values\n(%s to measurements)" % mode)
         sp2.axvline(ind, color="k")
-        sp2.axvline(len(self.x_i)-2, ls=":", color="k")
+        sp2.axvline(len(self.x_i) - 2, ls=":", color="k")
 
         sp3.plot(dgf_i, label="degrees of freedom")
         sp3.set_ylabel("degrees of freedom")
-        sp3.axvline(len(self.x_i)-2, ls=":", color="k")
+        sp3.axvline(len(self.x_i) - 2, ls=":", color="k")
         sp3.axvline(ind, color="k")
 
         sp4.plot(d_i2, label="d_i2")
         sp4.set_xlabel("iteration")
         sp4.set_ylabel("convergence criterion")
         fig.subplots_adjust(hspace=0.1)
-        sp4.set_xlim(0, len(self.x_i)-1)
-        sp4.axvline(len(self.x_i)-2, ls=":", color="k")
+        sp4.set_xlim(0, len(self.x_i) - 1)
+        sp4.axvline(len(self.x_i) - 2, ls=":", color="k")
         sp4.axvline(ind, color="k")
         sp4.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
         xlabels = list(map(lambda x: "%i" % x, sp4.get_xticks()))
@@ -1340,11 +1404,11 @@ class optimalEstimation(object):
         return fig
 
     def summary(self, *args, **kwargs):
-        DeprecationWarning('Use summarize instead of summary!')
+        DeprecationWarning("Use summarize instead of summary!")
         return self.summarize(self, *args, **kwargs)
 
     def summarize(self, returnXarray=False, combineXB=False):
-        '''Provide a summary of the retrieval results as a dictionary.
+        """Provide a summary of the retrieval results as a dictionary.
 
         Parameters
         ----------
@@ -1359,77 +1423,79 @@ class optimalEstimation(object):
         -------
         dict or xarray.Dataset
           Summary of retrieval results
-        '''
+        """
 
         if self.convI < 0:
             raise RuntimeError("Retrieval did not run successfully")
 
         summary = {}
-        summary['x_a'] = self.x_a.rename_axis('x_vars')
-        summary['x_a_err'] = self.x_a_err.rename_axis('x_vars')
-        summary['S_a'] = self.S_a.rename_axis(
-            'x_vars').rename_axis('x_vars_T', axis=1)
-        summary['x_op'] = self.x_op.rename_axis('x_vars')
-        summary['x_op_err'] = self.x_op_err.rename_axis('x_vars')
-        summary['S_op'] = self.S_op.rename_axis(
-            'x_vars').rename_axis('x_vars_T', axis=1)
-        summary['dgf_x'] = self.dgf_x.rename_axis('x_vars')
-        summary['y_obs'] = self.y_obs.rename_axis('y_vars')
-        summary['S_y'] = self.S_y.rename_axis(
-            'y_vars').rename_axis('y_vars_T', axis=1)
+        summary["x_a"] = self.x_a.rename_axis("x_vars")
+        summary["x_a_err"] = self.x_a_err.rename_axis("x_vars")
+        summary["S_a"] = self.S_a.rename_axis("x_vars").rename_axis("x_vars_T", axis=1)
+        summary["x_op"] = self.x_op.rename_axis("x_vars")
+        summary["x_op_err"] = self.x_op_err.rename_axis("x_vars")
+        summary["S_op"] = self.S_op.rename_axis("x_vars").rename_axis(
+            "x_vars_T", axis=1
+        )
+        summary["dgf_x"] = self.dgf_x.rename_axis("x_vars")
+        summary["y_obs"] = self.y_obs.rename_axis("y_vars")
+        summary["S_y"] = self.S_y.rename_axis("y_vars").rename_axis("y_vars_T", axis=1)
 
-        summary['y_op'] = self.y_op.rename_axis('y_vars')
+        summary["y_op"] = self.y_op.rename_axis("y_vars")
         if self.x_truth is not None:
-            summary['x_truth'] = self.x_truth.rename_axis('x_vars')
+            summary["x_truth"] = self.x_truth.rename_axis("x_vars")
 
-        if hasattr(self, 'nonlinearity'):
-            summary['nonlinearity'] = self.linearity
-        if hasattr(self, 'trueLinearityChi2'):
-            summary['trueLinearityChi2'] = self.trueLinearityChi2
-            summary['trueLinearityChi2Critical'] = \
-                self.trueLinearityChi2Critical
-        if hasattr(self, 'chi2Results'):
-            summary['chi2value'] = self.chi2Results['chi2value']
-            summary['chi2critical'] = self.chi2Results['chi2critical']
+        if hasattr(self, "nonlinearity"):
+            summary["nonlinearity"] = self.linearity
+        if hasattr(self, "trueLinearityChi2"):
+            summary["trueLinearityChi2"] = self.trueLinearityChi2
+            summary["trueLinearityChi2Critical"] = self.trueLinearityChi2Critical
+        if hasattr(self, "chi2Results"):
+            summary["chi2value"] = self.chi2Results["chi2value"]
+            summary["chi2critical"] = self.chi2Results["chi2critical"]
 
-        summary['dgf'] = self.dgf_i[self.convI]
-        summary['convergedIteration'] = self.convI
+        summary["dgf"] = self.dgf_i[self.convI]
+        summary["convergedIteration"] = self.convI
 
         if (not combineXB) and (len(self.b_vars) > 0):
-            summary['b_p'] = self.b_p.rename_axis('b_vars')
-            summary['S_b'] = self.S_b.rename_axis(
-                'b_vars').rename_axis('b_vars_T', axis=1)
-            summary['b_p_err'] = self.b_p_err.rename_axis('b_vars')
+            summary["b_p"] = self.b_p.rename_axis("b_vars")
+            summary["S_b"] = self.S_b.rename_axis("b_vars").rename_axis(
+                "b_vars_T", axis=1
+            )
+            summary["b_p_err"] = self.b_p_err.rename_axis("b_vars")
 
         elif combineXB and (len(self.b_vars) > 0):
-            summary['x_a'] = pd.concat(
-                (summary['x_a'], self.b_p)).rename_axis('x_vars')
-            summary['x_op'] = pd.concat(
-                (summary['x_op'], self.b_p)).rename_axis('x_vars')
-            summary['x_op_err'] = pd.concat(
-                (summary['x_op_err'], self.b_p_err)).rename_axis('x_vars')
-            summary['dgf_x'] = pd.concat(
-                (
-                    summary['dgf_x'],
-                    pd.Series(np.zeros(self.b_n), index=self.b_vars)
-                )
-            ).rename_axis('x_vars')
-            summary['S_a'] = pd.concat(
-                (summary['S_a'], self.S_b), sort=False
-            ).rename_axis('x_vars').rename_axis('x_vars_T', axis=1)
-            summary['S_op'] = pd.concat(
-                (summary['S_op'], self.S_b), sort=False
-            ).rename_axis('x_vars').rename_axis('x_vars_T', axis=1)
+            summary["x_a"] = pd.concat((summary["x_a"], self.b_p)).rename_axis("x_vars")
+            summary["x_op"] = pd.concat((summary["x_op"], self.b_p)).rename_axis(
+                "x_vars"
+            )
+            summary["x_op_err"] = pd.concat(
+                (summary["x_op_err"], self.b_p_err)
+            ).rename_axis("x_vars")
+            summary["dgf_x"] = pd.concat(
+                (summary["dgf_x"], pd.Series(np.zeros(self.b_n), index=self.b_vars))
+            ).rename_axis("x_vars")
+            summary["S_a"] = (
+                pd.concat((summary["S_a"], self.S_b), sort=False)
+                .rename_axis("x_vars")
+                .rename_axis("x_vars_T", axis=1)
+            )
+            summary["S_op"] = (
+                pd.concat((summary["S_op"], self.S_b), sort=False)
+                .rename_axis("x_vars")
+                .rename_axis("x_vars_T", axis=1)
+            )
 
         if returnXarray:
             import xarray as xr
+
             summary = xr.Dataset(summary)
 
         return summary
 
 
 def optimalEstimation_loadResults(fname, allow_pickle=True):
-    r'''
+    r"""
     Helper function to load a saved pyOptimalEstimation object
 
     Parameters
@@ -1441,17 +1507,17 @@ def optimalEstimation_loadResults(fname, allow_pickle=True):
     -------
     pyOptimalEstimation object
       pyOptimalEstimation obtained from file.
-    '''
+    """
     oeDict = np.load(fname, allow_pickle=allow_pickle)
     oe = _oeDict2Object(oeDict.tolist())
     return oe
 
 
 def invertMatrix(A, raise_error=True):
-    '''
+    """
     Wrapper function for np.linalg.inv, because original function reports
     LinAlgError if nan in array for some numpy versions. We want that the
-    retrieval is robust with respect to that. Also, checks for singular 
+    retrieval is robust with respect to that. Also, checks for singular
     matrices were added.
 
     Parameters
@@ -1465,7 +1531,7 @@ def invertMatrix(A, raise_error=True):
     -------
     Ainv : (..., M, M) ndarray or matrix
         Inverse of the matrix `A`.
-    '''
+    """
 
     A = np.asarray(A)
 
@@ -1479,7 +1545,7 @@ def invertMatrix(A, raise_error=True):
         A = A.astype(np.float64)
         eps = np.finfo(A.dtype).eps
 
-    if np.linalg.cond(A) > 1/eps:
+    if np.linalg.cond(A) > 1 / eps:
         if raise_error:
             raise ValueError("Found singular matrix", UserWarning)
         else:
@@ -1490,7 +1556,7 @@ def invertMatrix(A, raise_error=True):
 
 
 def _oeDict2Object(oeDict):
-    r'''
+    r"""
     Helper function to convert a oe-dictionary (usually loaded from a file) to
     a pyOptimalEstimation object
 
@@ -1503,7 +1569,7 @@ def _oeDict2Object(oeDict):
     -------
     pyOptimalEstimation object
       pyOptimalEstimation object obtained from file.
-    '''
+    """
     oe = optimalEstimation(
         oeDict.pop("x_vars"),
         oeDict.pop("x_a"),
@@ -1511,15 +1577,15 @@ def _oeDict2Object(oeDict):
         oeDict.pop("y_vars"),
         oeDict.pop("y_obs"),
         oeDict.pop("S_y"),
-        None
+        None,
     )
     for kk in oeDict.keys():
         oe.__dict__[kk] = oeDict[kk]
     return oe
 
 
-def _niceColors(length, cmap='hsv'):
-    r'''
+def _niceColors(length, cmap="hsv"):
+    r"""
     Helper function to provide colors for plotting
 
     Parameters
@@ -1533,16 +1599,16 @@ def _niceColors(length, cmap='hsv'):
     -------
     list of colorcodes
       list of colors
-    '''
+    """
     colors = list()
     cm = plt.get_cmap(cmap)
     for l in range(length):
-        colors.append(cm(1.*l/length))
+        colors.append(cm(1.0 * l / length))
     return colors
 
 
 def _estimateChi2(S, z, atol=1e-5):
-    '''Estimate Chi^2 to estimate whether z is from distribution with 
+    """Estimate Chi^2 to estimate whether z is from distribution with
     covariance S
 
     Parameters
@@ -1552,15 +1618,15 @@ def _estimateChi2(S, z, atol=1e-5):
     z : {array}
         Vector to test
         atol : float (default 1e-5)
-            The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose default value 
+            The absolute tolerance for comparing eigen values to zero. We
+            found that values should be than the numpy.isclose default value
             of 1e-8.
 
     Returns
     -------
     float
         Estimated chi2 value
-    '''
+    """
 
     eigVals, eigVecsL = scipy.linalg.eig(S, left=True, right=False)
     z_prime = eigVecsL.T.dot(z)
@@ -1569,17 +1635,18 @@ def _estimateChi2(S, z, atol=1e-5):
     notNull = np.abs(eigVals) > atol
     dofs = np.sum(notNull)
     if dofs != len(notNull):
-        print('Warning. Singular Matrix with rank %i instead of %i. '
-              '(This is typically safe to ignore)       ' %
-              (dofs, len(notNull)))
+        print(
+            "Warning. Singular Matrix with rank %i instead of %i. "
+            "(This is typically safe to ignore)       " % (dofs, len(notNull))
+        )
 
     # Rodgers eq. 12.1
-    chi2s = z_prime[notNull]**2/eigVals[notNull]
+    chi2s = z_prime[notNull] ** 2 / eigVals[notNull]
     return chi2s, dofs
 
 
 def _testChi2(S, z, significance, atol=1e-5):
-    '''Test whether z is from distribution with covariance S with significance
+    """Test whether z is from distribution with covariance S with significance
 
     Parameters
     ----------
@@ -1590,8 +1657,8 @@ def _testChi2(S, z, significance, atol=1e-5):
     significance : {float}
         Significance level
         atol : float (default 1e-5)
-            The absolute tolerance for comparing eigen values to zero. We 
-            found that values should be than the numpy.isclose default value 
+            The absolute tolerance for comparing eigen values to zero. We
+            found that values should be than the numpy.isclose default value
             of 1e-8.
 
     Returns
@@ -1603,7 +1670,7 @@ def _testChi2(S, z, significance, atol=1e-5):
     bool
         True if Chi^2 test passed
 
-    '''
+    """
     chi2s_obs, dof = _estimateChi2(S, z, atol=atol)
     chi2_obs = np.real_if_close(np.sum(chi2s_obs))
     chi2_theo = scipy.stats.chi2.isf(significance, dof)
