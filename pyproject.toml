@@ -21,4 +21,4 @@ Homepage = 'https://github.com/maahn/pyOptimalEstimation'
 [tool.setuptools_scm]
 
 [tool.setuptools.dynamic]
-readme = {file = ["README.md"]}
+readme = {file = ["README.md"], content-type = "text/markdown"}
