@@ -84,8 +84,9 @@ class optimalEstimation(object):
         be specified for every element of x separately. Defaults to 0.1 of
         prior.
     disturbance : float or dict of floats, optional
-        DEPRECATED: Identical to ``perturbation`` option. If both options are 
-        provided, ``perturbation`` is used instead. 
+        REMOVED: Used to be identical to the ``perturbation`` option. Passing
+        this option now raises ``DeprecationWarning``; use ``perturbation``
+        instead.
     useFactorInJac : bool,optional
         True if disturbance should be applied by multiplication, False if it
         should be applied by addition of fraction of prior. Defaults to False.
@@ -235,10 +236,9 @@ class optimalEstimation(object):
         self.useFactorInJac = useFactorInJac
         self.gammaFactor = gammaFactor
         if disturbance is not None:
-            self.perturbation = disturbance
-            print(
-                'Warning. The option "disturbance" is deprecated, use '
-                '"perturbation" instead'
+            raise DeprecationWarning(
+                'The option "disturbance" is deprecated, use "perturbation" '
+                "instead"
             )
         self.perturbation = perturbation
         self.convergenceFactor = convergenceFactor
@@ -264,6 +264,26 @@ class optimalEstimation(object):
         self._y_a = None
 
         return
+
+    def _computePerturbation(self, xb_vars):
+        r"""
+        Build the per-variable perturbation array (in xb_vars order) and the
+        corresponding "perturbed <var>" row labels, shared by getJacobian and
+        getJacobian_external.
+        """
+        if type(self.perturbation) == float:
+            perturbations = {key: self.perturbation for key in xb_vars}
+        elif type(self.perturbation) == dict:
+            perturbations = self.perturbation
+        else:
+            raise TypeError("perturbation must be type dict or float")
+
+        perturbation = np.array(
+            [perturbations[key] for key in xb_vars], dtype=np.float64
+        )
+        perturbedKeys = ["perturbed %s" % key for key in xb_vars]
+
+        return perturbation, perturbedKeys
 
     def getJacobian(self, xb, y):
         r"""
@@ -295,27 +315,7 @@ class optimalEstimation(object):
         # If a factor is used to perturb xb, xb must not be zero.
         assert not (self.useFactorInJac and np.any(xb == 0))
 
-        if type(self.perturbation) == float:
-            perturbations = dict()
-            for key in xb_vars:
-                perturbations[key] = self.perturbation
-        elif type(self.perturbation) == dict:
-            perturbations = self.perturbation
-        else:
-            raise TypeError("perturbation must be type dict or float")
-
-        # perturbations == perturbation, but perturbation is only a numpy array
-        # order in elements of "perturbation" follows xb_vars.
-        # Question to MM: does perturbations need to be dict?
-        perturbation = np.zeros((len(xb_vars),), dtype=np.float64)
-        i = 0
-        for key, value in perturbations.items():
-            perturbation[i] = value
-            i += 1
-
-        perturbedKeys = []
-        for tup in xb_vars:
-            perturbedKeys.append("perturbed %s" % tup)
+        perturbation, perturbedKeys = self._computePerturbation(xb_vars)
 
         # Numpy array, dims: ("perturbedKeys","xb_bars"); "perturbedKeys" = "perturbed "+"xb_vars"
         # Initialize to xb in rows:
@@ -445,27 +445,7 @@ class optimalEstimation(object):
         # If a factor is used to perturb xb, xb must not be zero.
         assert not (self.useFactorInJac and np.any(xb == 0))
 
-        if type(self.perturbation) == float:
-            perturbations = dict()
-            for key in xb_vars:
-                perturbations[key] = self.perturbation
-        elif type(self.perturbation) == dict:
-            perturbations = self.perturbation
-        else:
-            raise TypeError("perturbation must be type dict or float")
-
-        # perturbations == perturbation, but perturbation is only a numpy array
-        # order in elements of "perturbation" follows xb_vars.
-
-        perturbation = np.zeros((len(xb_vars),), dtype=np.float64)
-        i = 0
-        for key, value in perturbations.items():
-            perturbation[i] = value
-            i += 1
-
-        perturbedKeys = []
-        for tup in xb_vars:
-            perturbedKeys.append("perturbed %s" % tup)
+        perturbation, perturbedKeys = self._computePerturbation(xb_vars)
 
         # Compute dx (i.e. distance to perturbed parameters)
 
@@ -909,13 +889,18 @@ class optimalEstimation(object):
            Corresponding critical Chi2 value.
         """
         self.linearity = np.zeros(self.x_n) * np.nan
+        self.trueLinearity = np.nan
         self.trueLinearityChi2 = np.nan
         self.trueLinearityChi2Critical = np.nan
 
         if not self.converged:
             print("did not converge")
-            return self.linearity, self.trueLinearity
-        lamb, II = np.linalg.eig(self.S_aposteriori_i[self.convI])
+            return self.linearity, self.trueLinearityChi2, self.trueLinearityChi2Critical
+        # S_aposteriori_i is symmetric (a covariance matrix), so eigh is used
+        # instead of the general eig: it guarantees real eigenvalues and an
+        # orthonormal eigenbasis even for degenerate eigenvalues, whereas eig
+        # can return spurious complex components for a symmetric input.
+        lamb, II = np.linalg.eigh(self.S_aposteriori_i[self.convI])
         S_ep_inv = invertMatrix(np.array(self.S_ep_i[self.convI]))
         lamb[np.isclose(lamb, 0)] = 0
         if np.any(lamb < 0):
@@ -923,7 +908,7 @@ class optimalEstimation(object):
                 "found negative eigenvalues of S_aposteriori_i, "
                 " S_aposteriori_i not semipositive definite!"
             )
-            return self.linearity, self.trueLinearity
+            return self.linearity, self.trueLinearityChi2, self.trueLinearityChi2Critical
         error_pattern = lamb**0.5 * II
         for hh in range(self.x_n):
             x_hat = self.x_i[self.convI] + error_pattern[:, hh]  # estimated truth
@@ -997,7 +982,7 @@ class optimalEstimation(object):
 
         if not self.converged:
             print("did not converge")
-            pd.DataFrame(
+            self.chi2Results = pd.DataFrame(
                 np.zeros((4, 2)),
                 index=chi2names,
                 columns=chi2Cols,
@@ -1045,9 +1030,6 @@ class optimalEstimation(object):
             of 1e-8.
         Returns
         -------
-        chi2Passed : bool
-          True if chi² test passed, i.e. OE retrieval agrees with
-          measurements and null hypothesis is NOT rejected.
         chi2 : real
           chi² value
         chi2TestY : real
@@ -1085,10 +1067,7 @@ class optimalEstimation(object):
             of 1e-8.
         Returns
         -------
-        YObservationPrior : bool
-          True if chi² test passed, i.e. OE retrieval agrees with
-          measurements and null hypothesis is NOT rejected.
-        YObservationPrior: real
+        chi2 : real
           chi² value
         chi2TestY : real
           chi² cutoff value with significance 'significance'
@@ -1124,9 +1103,6 @@ class optimalEstimation(object):
 
         Returns
         -------
-        chi2Passed : bool
-          True if chi² test passed, i.e. OE retrieval agrees with
-          Prior and null hypothesis is NOT rejected.
         chi2: real
           chi² value
         chi2TestY : real
@@ -1201,9 +1177,6 @@ class optimalEstimation(object):
 
         Returns
         -------
-        chi2Passed : bool
-          True if chi² test passed, i.e. OE retrieval agrees with
-          Prior and null hypothesis is NOT rejected.
         chi2 : real
           chi² value
         chi2TestX : real
@@ -1319,8 +1292,8 @@ class optimalEstimation(object):
         try:
             gamma = np.array(self.gam_i)
             noGam = len(gamma[gamma != 1])
-            ind = np.argmin(d_i2[noGam:]) + noGam - 1
-        except:
+            ind = np.argmin(d_i2[noGam:]) + noGam
+        except (TypeError, ValueError):
             ind = 0
 
         if self.converged:
@@ -1628,8 +1601,13 @@ def _estimateChi2(S, z, atol=1e-5):
         Estimated chi2 value
     """
 
-    eigVals, eigVecsL = scipy.linalg.eig(S, left=True, right=False)
-    z_prime = eigVecsL.T.dot(z)
+    # S is symmetric by construction (a covariance matrix), so eigh is used
+    # instead of the general eig: it guarantees an orthonormal eigenbasis
+    # (required for the chi2 identity below to hold) even when eigenvalues
+    # are degenerate, whereas eig's basis for a degenerate eigenspace is
+    # numerically arbitrary and not orthogonal.
+    eigVals, eigVecs = np.linalg.eigh(S)
+    z_prime = eigVecs.T.dot(z)
 
     # Handle singular matrices. See Rodgers ch 12.2
     notNull = np.abs(eigVals) > atol
